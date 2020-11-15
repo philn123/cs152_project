@@ -86,6 +86,6 @@ IDENTIFIER {LETTER}+(({LETTER}|{DIGIT}|{UNDERSCORE})*({LETTER}|{DIGIT})+)*
 
 	/* make sure this is at the end of the rules, it will catch anything that is not recognized except newlines (characters not in language) */
 	/* Error 1 */
-.              {printf("Error at line %d, column %d: unrecognized symbol \"%s\"\n", currLine, currPos, yytext); exit(1);}
+.  /* ERROR */
 
 %%
