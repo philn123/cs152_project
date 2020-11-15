@@ -1,47 +1,54 @@
 %{
  #include <stdio.h>
  #include <stdlib.h>
-
+ #include "string.h"
+ #include "y.tab.h"
  int yylex();
  void yyerror(const char *msg);
+ extern const char* yytext;
  extern int currLine;
  extern int currPos;
  FILE * yyin;
 %}
+
+%define parse.error verbose
 
 %union{
     char* cval;
     int ival;
 }
 
-%define parse.error verbose
-%start program
+%start prog_start
 
 %token FUNCTION BEGINPARAMS ENDPARAMS BEGINLOCALS ENDLOCALS BEGINBODY ENDBODY
 %token INTEGER ARRAY OF IF THEN ENDIF ELSE WHILE DO FOR BEGINLOOP ENDLOOP CONTINUE
-%token READ WRITE AND OR NOT TRUE FALSE RETURN
-%token SUB ADD MULT DIV MOD
-%token EQ NEQ LT GT LTE GTE
-%token SEMICOLON COLON COMMA L_PAREN R_PAREN L_SQUARE_BRACKET R_SQUARE_BRACKET ASSIGN
+%token READ WRITE AND OR TRUE FALSE RETURN
+%token SEMICOLON COLON COMMA L_PAREN R_PAREN L_SQUARE_BRACKET R_SQUARE_BRACKET
 %token IDENT NUMBER
+%left SUB ADD MULT DIV MOD
+%left EQ NEQ LT GT LTE GTE
+%right NOT ASSIGN
 %type<cval> IDENT
 %type<ival> NUMBER
 
 %% 
 
-program:    /* epsilon */ {printf("program -> epsilon\n");}
-        |   program function {printf("program -> program function\n");}
-        ;
+prog_start: functions {printf("prog_start -> functions\n");}
+	  ;
 
-function:   FUNCTION IDENT SEMICOLON 
+functions: /* epsilon */ {printf("functions -> epsilon\n");}
+	 | function functions	{printf("functions -> function functions\n");}
+	 ;
+
+function:   FUNCTION ident SEMICOLON 
             BEGINPARAMS dec_loop ENDPARAMS 
             BEGINLOCALS dec_loop ENDLOCALS
             BEGINBODY statement_loop ENDBODY
             {
-               printf("function -> FUNCTION IDENT SEMICOLON ");
+               printf("function -> FUNCTION ident SEMICOLON ");
                printf("BEGINPARAMS dec_loop ENDPARAMS ");
                printf("BEGINLOCALS dec_loop ENDLOCALS ");
-               printf("BEGINBODY statement_loop ENDBODY ");
+               printf("BEGINBODY statement_loop ENDBODY\n");
             }
             ;
          
@@ -57,14 +64,14 @@ statement_loop:   statement SEMICOLON {printf("statement_loop -> statement SEMIC
 declaration:   id_loop COLON assignment {printf("declaration -> id_loop COLON assignment\n");}
                ;
             
-id_loop: IDENT {printf("id_loop -> IDENT\n");}
-      | id_loop COMMA IDENT {printf("id_loop -> id_loop COMMA IDENT\n");}
+id_loop: ident {printf("id_loop -> ident\n");}
+      | id_loop COMMA ident {printf("id_loop -> id_loop COMMA ident\n");}
       ;
 
 assignment: INTEGER {printf("assignment -> INTEGER\n");}
-         | ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER {printf("assignment -> ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER\n");}
+         | ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER {printf("assignment -> ARRAY L_SQUARE_BRACKET NUMBER %d R_SQUARE_BRACKET OF INTEGER\n", $3);}
          | ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER  
-                           {printf("assignment -> ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER\n");}
+                           {printf("assignment -> ARRAY L_SQUARE_BRACKET NUMBER %d R_SQUARE_BRACKET L_SQUARE_BRACKET NUMBER %d R_SQUARE_BRACKET OF INTEGER\n", $3, $6);}
          ;
 
 statement: A {printf("statement -> A\n");}
@@ -78,7 +85,7 @@ statement: A {printf("statement -> A\n");}
          | I {printf("statement -> I\n");}
          ;
 
-A: var ASSIGN expression {printf("A -> var ASSIGN expression\n");}
+A:    var ASSIGN expression {printf("A -> var ASSIGN expression\n");}
    ;
 
 B: IF bool_expr THEN statement_loop ENDIF {printf("B -> IF bool_expr THEN statement_loop ENDIF\n");}
@@ -93,7 +100,7 @@ D: DO BEGINLOOP statement_loop ENDLOOP WHILE bool_expr {printf("D -> DO BEGINLOO
 
 E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP 
    {
-      printf("E -> FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP\n");
+      printf("E -> FOR var ASSIGN NUMBER %d SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP\n", $4);
    }
    ;
 
@@ -114,13 +121,13 @@ I: RETURN expression {printf("I -> RETURN expression\n");};
 bool_expr: relation_and_expr bool_expr_loop {printf("bool_expr -> relation_and_expr bool_expr_loop\n");}
    ;
 bool_expr_loop:   /* epsilon */ {printf("bool_expr_loop -> epsilon\n");}
-               | OR relation_and_expr bool_expr_loop {printf("bool_expr_loop -> OR relation_and_expr bool_expr_loop\n");}
+               | bool_expr_loop OR relation_and_expr {printf("bool_expr_loop -> bool_expr_loop OR relation_and_expr\n");}
                ;
 
 relation_and_expr: relation_expr relation_and_expr_loop {printf("relation_and_expr -> relation_expr relation_and_expr_loop\n");}
    ;
 relation_and_expr_loop:   /* epsilon */ {printf("relation_and_expr_loop -> epsilon\n");}
-               | AND relation_expr relation_and_expr_loop {printf("relation_and_expr_loop -> AND relation_expr relation_and_expr_loop\n");}
+               | relation_and_expr_loop AND relation_expr {printf("relation_and_expr_loop -> relation_and_expr_loop AND relation_expr\n");}
                ;
 
 relation_expr: relations {printf("relation_expr -> relations\n");}
@@ -143,37 +150,42 @@ comp: EQ {printf("comp -> EQ\n");}
 expression: multiplicative_expr expression_loop {printf("expression -> multiplicative_expr expression_loop\n");}
          ;
 expression_loop:  /* epsilon */ {printf("expression_loop -> EPSILON\n");}
-               |  ADD multiplicative_expr expression_loop {printf("expression_loop -> ADD multiplicative_expr expression_loop\n");}
-               |  SUB multiplicative_expr expression_loop {printf("expression_loop -> SUB multiplicative_expr expression_loop\n");}
+               |  expression_loop ADD multiplicative_expr {printf("expression_loop ->  expression_loop ADD multiplicative_expr\n");}
+               |  expression_loop SUB multiplicative_expr {printf("expression_loop -> expression_loop SUB multiplicative_expr\n");}
                ;
 
 multiplicative_expr: term multi_loop {printf("multiplicative_expr -> term multi_loop\n");}
                   ;
 multi_loop: /* epsilon */ {printf("multi_loop -> EPSILON\n");}
-         |  MULT term multi_loop {printf("multi_loop -> MULT term multi_loop\n");}
-         |  DIV term multi_loop {printf("multi_loop -> DIVterm multi_loop\n");}
-         |  MOD term multi_loop {printf("multi_loop -> MOD term multi_loop\n");}
+         |  multi_loop MULT term {printf("multi_loop -> multi_loop MULT term\n");}
+         |  multi_loop DIV term {printf("multi_loop -> multi_loop DIV term\n");}
+         |  multi_loop MOD term  {printf("multi_loop -> multi_loop MOD term\n");}
          ;
 
 term: term_top {printf("term -> term_top\n");}
    |  SUB term_top {printf("term -> SUB term_top\n");}
-   |  IDENT L_PAREN term_expression R_PAREN {printf("term -> IDENT L_PAREN term_expression R_PAREN\n");}
+   |  ident term_expression {printf("term -> ident term_expression\n");}
    ;
 term_top: var {printf("term_top -> var\n");}
-      |  NUMBER {printf("term_top -> NUMBER\n");}
+      |  NUMBER {printf("term_top -> NUMBER %d\n", $1);}
       |  L_PAREN expression R_PAREN {printf("term_top -> L_PAREN expression R_PAREN\n");}
       ;
-term_expression: /* epsilon */ {printf("term_expression -> EPSILON\n");}
-               | expression {printf("term_expression -> expression\n");}
-               | expression COMMA term_expression {printf("term_expression -> expression COMMA term_expression\n");}
+term_expression: L_PAREN term_exp R_PAREN {printf("term_expression -> L_PAREN term_exp R_PAREN\n");}
+               | L_PAREN R_PAREN {printf("term_expression -> L_PAREN R_PAREN\n");}
                ;
+term_exp:   expression {printf("term_exp -> expression\n");}
+         |  expression COMMA term_exp {printf("term_exp -> expression COMMA term_exp");}
+         ;
 
-var:  IDENT {printf("var -> IDENT\n");}
-   |  IDENT L_SQUARE_BRACKET expression R_SQUARE_BRACKET var_bracket {printf("var -> IDENT L_SQUARE_BRACKET expression R_SQUARE_BRACKET var_bracket\n");}
+var:  ident {printf("var -> ident\n");}
+   |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET var_bracket {printf("var -> ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET var_bracket\n");}
    ;
 var_bracket:   /* epsilon */ {printf("var_bracket -> EPSILON\n");}
             |  L_SQUARE_BRACKET expression R_SQUARE_BRACKET {printf("var_bracket -> L_SQUARE_BRACKET expression R_SQUARE_BRACKET\n");}
             ;
+
+ident:   IDENT {printf("ident -> IDENT %s\n", yytext);}
+      ;
 %%
 
 int main(int argc, char **argv) {
