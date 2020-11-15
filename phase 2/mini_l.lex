@@ -12,11 +12,11 @@
 /* yytext stores token itself */
 
 DIGIT    [0-9]
-LETTER   [a-ZA-Z]
+LETTER   [a-zA-Z]
 UNDERSCORE [_]
 IDENTIFIER {LETTER}+(({LETTER}|{DIGIT}|{UNDERSCORE})*({LETTER}|{DIGIT})+)*
 %%
-/* RESERVERED WORDS */
+	/* RESERVERED WORDS */
 "function"  {currPos += yyleng; return FUNCTION;}
 "beginparams" {currPos += yyleng; return BEGINPARAMS;}
 "endparams"	{currPos += yyleng; return ENDPARAMS;}
@@ -46,14 +46,14 @@ IDENTIFIER {LETTER}+(({LETTER}|{DIGIT}|{UNDERSCORE})*({LETTER}|{DIGIT})+)*
 "false"	   {currPos += yyleng; return FALSE;}
 "return"	   {currPos += yyleng; return RETURN;}
 
-/* Arithmetic Operators */
+	/* Arithmetic Operators */
 "-"            {currPos += yyleng; return SUB;}
 "+"            {currPos += yyleng; return ADD;}
 "*"            {currPos += yyleng; return MULT;}
 "/"            {currPos += yyleng; return DIV;}
 "%"            {currPos += yyleng; return MOD;}
 
-/* Comparison Operators */
+	/* Comparison Operators */
 "=="            {currPos += yyleng; return EQ;}
 "<>"            {currPos += yyleng; return NEQ;}
 "<"             {currPos += yyleng; return LT;}
@@ -64,28 +64,28 @@ IDENTIFIER {LETTER}+(({LETTER}|{DIGIT}|{UNDERSCORE})*({LETTER}|{DIGIT})+)*
 {IDENTIFIER}	{currPos += yyleng; return IDENT;}
 {DIGIT}+       {currPos += yyleng; return NUMBER;}
 
-/* Other Special Symbols */ 
+	/* Other Special Symbols */ 
 ";"				{currPos += yyleng; return SEMICOLON;}
 ":" 				{currPos += yyleng; return COLON;}
 "," 				{currPos += yyleng; return COMMA;}
-"("            {currPos += yyleng; return L_PARENT;}
+"("            {currPos += yyleng; return L_PAREN;}
 ")"            {currPos += yyleng; return R_PAREN;}
 "["            {currPos += yyleng; return L_SQUARE_BRACKET;}
 "]"            {currPos += yyleng; return R_SQUARE_BRACKET;}
 ":="				{currPos += yyleng; return ASSIGN;}
 
 
-/* White Space and Comments */
+	/* White Space and Comments */
 ("##").*\n		{currLine++; currPos = 1;}
 [ \t]+         {/* ignore spaces */ currPos += yyleng;}
 "\n"           {currLine++; currPos = 1;}
 
-/* Error 2 */
+	/* Error 2 */
 ({DIGIT}|{UNDERSCORE})+{IDENTIFIER}		{printf("Error at line %d, column %d: identifier \"%s\" must begin with a letter\n", currLine, currPos, yytext); exit(0);}
 {IDENTIFIER}({UNDERSCORE})+		{printf("Error at line %d, column %d: identifier \"%s\" cannot end with an underscore\n", currLine, currPos, yytext); exit(0);}
 
-/* make sure this is at the end of the rules, it will catch anything that is not recognized except newlines (characters not in language) */
-/* Error 1 */
+	/* make sure this is at the end of the rules, it will catch anything that is not recognized except newlines (characters not in language) */
+	/* Error 1 */
 .              {printf("Error at line %d, column %d: unrecognized symbol \"%s\"\n", currLine, currPos, yytext); exit(0);}
 
 %%
