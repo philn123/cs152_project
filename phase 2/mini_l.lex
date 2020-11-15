@@ -62,7 +62,7 @@ IDENTIFIER {LETTER}+(({LETTER}|{DIGIT}|{UNDERSCORE})*({LETTER}|{DIGIT})+)*
 ">="            {currPos += yyleng; return GTE;}
 
 {IDENTIFIER}	{currPos += yyleng; return IDENT;}
-{DIGIT}+       {currPos += yyleng; return NUMBER;}
+{DIGIT}+       {currPos += yyleng; yylval.ival = atoi(yytext); return NUMBER;}
 
 	/* Other Special Symbols */ 
 ";"				{currPos += yyleng; return SEMICOLON;}
@@ -86,24 +86,6 @@ IDENTIFIER {LETTER}+(({LETTER}|{DIGIT}|{UNDERSCORE})*({LETTER}|{DIGIT})+)*
 
 	/* make sure this is at the end of the rules, it will catch anything that is not recognized except newlines (characters not in language) */
 	/* Error 1 */
-.              {printf("Error at line %d, column %d: unrecognized symbol \"%s\"\n", currLine, currPos, yytext); exit(0);}
+.              {printf("Error at line %d, column %d: unrecognized symbol \"%s\"\n", currLine, currPos, yytext); exit(1);}
 
 %%
-
-   /*int main(int argc, char ** argv)
-   {
-      if(argc >= 2)
-      {
-         yyin = fopen(argv[1], "r");
-         if(yyin == NULL)
-         {
-            yyin = stdin;
-         }
-      }
-      else
-      {
-         yyin = stdin;
-      }
-      yylex();
-   }
-   */
