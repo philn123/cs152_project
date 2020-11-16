@@ -119,14 +119,15 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
    }
    ;
 
-F: READ var var_loop {printf("F -> READ var var_loop\n");}
+F: READ var_loop {printf("F -> READ var_loop\n");}
    ;
 
-G: WRITE var var_loop {printf("G -> WRITE var var_loop\n");}
+G: WRITE var_loop {printf("G -> WRITE var_loop\n");}
    ;
 
-var_loop:  /*  epsilon */ {printf("var_loop -> EPSILON\n");}
-         | COMMA var var_loop {printf("var_loop -> COMMA var var_loop \n");}
+var_loop:  var {printf("var_loop -> var\n");}
+         | var COMMA var_loop {printf("var_loop -> var COMMA var_loop \n");}
+         | var var_loop {printf("Syntax error at line %d position %d: Missing comma in variable list.\n", currLine, currPos);}
          ;
 
 H: CONTINUE {printf("H -> CONTINUE\n");};
