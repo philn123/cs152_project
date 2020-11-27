@@ -2,9 +2,6 @@
  extern const char* yytext;
  extern int currLine;
  extern int currPos;
- void yyerror(const char *msg);
- int yylex();
- FILE * yyin;
 %}
 
 %skeleton "lalr1.cc"
@@ -17,17 +14,13 @@
 
 %code requires
 {
-      /* you may need these header files 
-      * add more header file if you need more
-      */
-   #include <stdio.h>
-   #include <stdlib.h>
-   #include "y.tab.h"
-
-   #include <list>
-   #include <string>
-   #include <functional>
-   using namespace std;
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <iostream>
+    #include <list>
+    #include <string>
+    #include <functional>
+    using namespace std;
       /* define the sturctures using as types for non-terminals */
       struct dec_type{
          string code;
@@ -38,7 +31,7 @@
 
 %code
 {
-#include "parser.tab.hh"
+#include "y.tab.hh"
 struct tests
 {
 	string name;
@@ -67,7 +60,6 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %token INTEGER ARRAY OF IF THEN ENDIF ELSE WHILE DO FOR BEGINLOOP ENDLOOP CONTINUE
 %token READ WRITE AND OR TRUE FALSE RETURN
 %token SEMICOLON COLON COMMA L_PAREN R_PAREN L_SQUARE_BRACKET R_SQUARE_BRACKET
-%token IDENT NUMBER
 
 %right ASSIGN
 %left OR
@@ -80,16 +72,17 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %left L_SQUARE_BRACKET R_SQUARE_BRACKET
 %left L_PAREN R_PAREN
 
-%start start_prog
+%start prog_start
 
+%type <string> functions
 
 %% 
 
-prog_start: functions {printf("prog_start -> functions\n");}
+prog_start: functions {cout << $1 << endl;}
 	  ;
 
-functions: /* epsilon */ {printf("functions -> epsilon\n");}
-	 | function functions	{printf("functions -> function functions\n");}
+functions: /* epsilon */ {$$ = "";}
+	 | functions function	{printf("functions -> function functions\n");}
 	 ;
 
 function:   FUNCTION ident SEMICOLON 
