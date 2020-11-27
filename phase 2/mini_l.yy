@@ -1,4 +1,5 @@
 %{
+    /* TODO:Need to remove these later */
  extern const char* yytext;
  extern int currLine;
  extern int currPos;
@@ -53,6 +54,8 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 	
 	/* end of your code */
 }
+
+%token END 0 "end of file";
 
 %token<string> IDENT
 %token<int> NUMBER
@@ -258,5 +261,10 @@ int main(int argc, char *argv[])
 void yy::parser::error(const yy::location& l, const std::string& m)
 {
 	std::cerr << l << ": " << m << std::endl;
+}
+
+void yyerror(const char *msg)
+{
+    cout << "-----ERROR-----" << endl;
 }
 
