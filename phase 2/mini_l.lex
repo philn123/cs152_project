@@ -4,9 +4,11 @@
 /* Definitions */
 %{ 
    #include <iostream>  
-   #define YY_DECL yy::parser:symbol_type yylex()
+   #define YY_DECL yy::parser::symbol_type yylex()
    #include "y.tab.hh"
    static yy::location loc;
+
+   /* TODO: need to remove these when done */ int currLine = 1, currPos = 1;
 %}
 
 %option noyywrap
@@ -72,7 +74,7 @@ loc.step();
 "<="            {return yy::parser::make_LTE(loc);}
 ">="            {return yy::parser::make_GTE(loc);}
 
-{IDENTIFIER}	{return yy::parser::make_IDENTIFIER(yytext, loc);}
+{IDENTIFIER}	{return yy::parser::make_IDENT(yytext,loc);}
 {DIGIT}+        {return yy::parser::make_NUMBER(atoi(yytext),loc);}
 
 	/* Other Special Symbols */ 
@@ -83,7 +85,7 @@ loc.step();
 ")"            { return yy::parser::make_R_PAREN(loc);}
 "["            {return yy::parser::make_L_SQUARE_BRACKET(loc);}
 "]"            {return yy::parser::make_R_SQUARE_BRACKET(loc);}
-":="				{return yy::parser::make_ASSIGN(loc)}
+":="				{return yy::parser::make_ASSIGN(loc);}
 
 
 	/* White Space and Comments */
@@ -98,6 +100,6 @@ loc.step();
 	/* make sure this is at the end of the rules, it will catch anything that is not recognized except newlines (characters not in language) */
 .  /* ERROR 1 */
 
-<<EOF>> {return yy::parser::make_END(LOC):}
+<<EOF>> {return yy::parser::make_END(loc);}
 
 %%
