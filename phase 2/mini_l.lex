@@ -2,10 +2,17 @@
    /* Phillip Nguyen */
 
 /* Definitions */
+%{ 
+   #include <iostream>  
+   #define YY_DECL yy::parser:symbol_type yylex()
+   #include "y.tab.hh"
+   static yy::location loc;
+%}
 
-%{   
-   #include "y.tab.h"
-   int currLine = 1, currPos = 1;
+%option noyywrap
+
+%{
+#define YY_USER_ACTION loc.columns(yyleng);
 %}
 
 /* Rules */
@@ -16,8 +23,12 @@ LETTER   [a-zA-Z]
 UNDERSCORE [_]
 IDENTIFIER {LETTER}+(({LETTER}|{DIGIT}|{UNDERSCORE})*({LETTER}|{DIGIT})+)*
 %%
+
+%{
+loc.step();
+%}
 	/* RESERVERED WORDS */
-"function"  {currPos += yyleng; return FUNCTION;}
+"function"  {return yy::parser::make_FUNCTION(loc);}
 "beginparams" {currPos += yyleng; return BEGINPARAMS;}
 "endparams"	{currPos += yyleng; return ENDPARAMS;}
 "beginlocals"	{currPos += yyleng; return BEGINLOCALS;}
@@ -86,6 +97,8 @@ IDENTIFIER {LETTER}+(({LETTER}|{DIGIT}|{UNDERSCORE})*({LETTER}|{DIGIT})+)*
 
 	/* make sure this is at the end of the rules, it will catch anything that is not recognized except newlines (characters not in language) */
 	/* Error 1 */
-.  /* ERROR */
+.  /* ERROR *i */
+
+<<EOF>> {return yy::parser::make_END(LOC):}
 
 %%
