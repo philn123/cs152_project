@@ -29,75 +29,74 @@ loc.step();
 %}
 	/* RESERVERED WORDS */
 "function"  {return yy::parser::make_FUNCTION(loc);}
-"beginparams" {currPos += yyleng; return BEGINPARAMS;}
-"endparams"	{currPos += yyleng; return ENDPARAMS;}
-"beginlocals"	{currPos += yyleng; return BEGINLOCALS;}
-"endlocals"	{currPos += yyleng; return ENDLOCALS;}
-"beginbody"	{currPos += yyleng; return BEGINBODY;}
-"endbody"	{currPos += yyleng; return ENDBODY;}
-"integer"	{currPos += yyleng; return INTEGER;}
-"array"	   {currPos += yyleng; return ARRAY;}
-"of"	      {currPos += yyleng; return OF;}
-"if"	      {currPos += yyleng; return IF;}
-"then"	   {currPos += yyleng; return THEN;}
-"endif"	   {currPos += yyleng; return ENDIF;}
-"else"	   {currPos += yyleng; return ELSE;}
-"while"	   {currPos += yyleng; return WHILE;}
-"do"	      {currPos += yyleng; return DO;}
-"for"	      {currPos += yyleng; return FOR;}
-"beginloop"	{currPos += yyleng; return BEGINLOOP;}
-"endloop"	{currPos += yyleng; return ENDLOOP;}
-"continue"	{currPos += yyleng; return CONTINUE;}
-"read"	   {currPos += yyleng; return READ;}
-"write"	   {currPos += yyleng; return WRITE;}
-"and"	      {currPos += yyleng; return AND;}
-"or"	      {currPos += yyleng; return OR;}
-"not"	      {currPos += yyleng; return NOT;}
-"true"	   {currPos += yyleng; return TRUE;}
-"false"	   {currPos += yyleng; return FALSE;}
-"return"	   {currPos += yyleng; return RETURN;}
+"beginparams" {return yy::parser::make_BEGINPARAMS(loc);}
+"endparams"	{return yy::parser::make_ENDPARAMS(loc); }
+"beginlocals"	{return yy::parser::make_BEGINLOCALS(loc);}
+"endlocals"	{return yy::parser::make_ENDLOCALS(loc);}
+"beginbody"	{return yy::parser::make_BEGINBODY(loc);}
+"endbody"	{return yy::parser::make_ENDBODY(loc);}
+"integer"	{ return yy::parser::make_INTEGER(loc);}
+"array"	   {return yy::parser::make_ARRAY(loc);}
+"of"	      {return yy::parser::make_OF(loc);}
+"if"	      {return yy::parser::make_IF(loc);}
+"then"	   {return yy::parser::make_THEN(loc);}
+"endif"	   {return yy::parser::make_ENDIF(loc);}
+"else"	   {return yy::parser::make_ELSE(loc);}
+"while"	   {return yy::parser::make_WHILE(loc);}
+"do"	      {return yy::parser::make_DO(loc);}
+"for"	      { return yy::parser::make_FOR(loc);}
+"beginloop"	{return yy::parser::make_BEGINLOOP(loc);}
+"endloop"	{return yy::parser::make_ENDLOOP(loc);}
+"continue"	{return yy::parser::make_CONTINUE(loc);}
+"read"	   {return yy::parser::make_READ(loc);}
+"write"	   {return yy::parser::make_WRITE(loc);}
+"and"	      {return yy::parser::make_AND(loc);}
+"or"	      {return yy::parser::make_OR(loc);}
+"not"	      {return yy::parser::make_NOT(loc);}
+"true"	   {return yy::parser::make_TRUE(loc);}
+"false"	   {return yy::parser::make_FALSE(loc);}
+"return"	   {return yy::parser::make_RETURN(loc);}
 
 	/* Arithmetic Operators */
-"-"            {currPos += yyleng; return SUB;}
-"+"            {currPos += yyleng; return ADD;}
-"*"            {currPos += yyleng; return MULT;}
-"/"            {currPos += yyleng; return DIV;}
-"%"            {currPos += yyleng; return MOD;}
+"-"            {return yy::parser::make_SUB(loc);}
+"+"            {return yy::parser::make_ADD(loc);}
+"*"            {return yy::parser::make_MULT(loc);}
+"/"            {return yy::parser::make_DIV(loc);}
+"%"            {return yy::parser::make_MOD(loc);}
 
 	/* Comparison Operators */
-"=="            {currPos += yyleng; return EQ;}
-"<>"            {currPos += yyleng; return NEQ;}
-"<"             {currPos += yyleng; return LT;}
-">"             {currPos += yyleng; return GT;}
-"<="            {currPos += yyleng; return LTE;}
-">="            {currPos += yyleng; return GTE;}
+"=="            {return yy::parser::make_EQ(loc);}
+"<>"            {return yy::parser::make_NEQ(loc);}
+"<"             {return yy::parser::make_LT(loc);}
+">"             {return yy::parser::make_GT(loc);}
+"<="            {return yy::parser::make_LTE(loc);}
+">="            {return yy::parser::make_GTE(loc);}
 
-{IDENTIFIER}	{currPos += yyleng; return IDENT;}
-{DIGIT}+       {currPos += yyleng; yylval.ival = atoi(yytext); return NUMBER;}
+{IDENTIFIER}	{return yy::parser::make_IDENTIFIER(yytext, loc);}
+{DIGIT}+        {return yy::parser::make_NUMBER(atoi(yytext),loc);}
 
 	/* Other Special Symbols */ 
-";"				{currPos += yyleng; return SEMICOLON;}
-":" 				{currPos += yyleng; return COLON;}
-"," 				{currPos += yyleng; return COMMA;}
-"("            {currPos += yyleng; return L_PAREN;}
-")"            {currPos += yyleng; return R_PAREN;}
-"["            {currPos += yyleng; return L_SQUARE_BRACKET;}
-"]"            {currPos += yyleng; return R_SQUARE_BRACKET;}
-":="				{currPos += yyleng; return ASSIGN;}
+";"				{return yy::parser::make_SEMICOLON(loc);}
+":" 				{return yy::parser::make_COLON(loc);}
+"," 				{return yy::parser::make_COMMA(loc); }
+"("            {return yy::parser::make_L_PAREN(loc);}
+")"            { return yy::parser::make_R_PAREN(loc);}
+"["            {return yy::parser::make_L_SQUARE_BRACKET(loc);}
+"]"            {return yy::parser::make_R_SQUARE_BRACKET(loc);}
+":="				{return yy::parser::make_ASSIGN(loc)}
 
 
 	/* White Space and Comments */
-("##").*\n		{currLine++; currPos = 1;}
-[ \t]+         {/* ignore spaces */ currPos += yyleng;}
-"\n"           {currLine++; currPos = 1;}
+("##").*\n	   {loc.step(); loc.lines();}
+[ \t]+         {/* ignore spaces */ loc.step();}
+"\n"           {loc.step(); loc.lines();}
 
 	/* Error 2 */
-({DIGIT}|{UNDERSCORE})+{IDENTIFIER}		{printf("Error at line %d, column %d: identifier \"%s\" must begin with a letter\n", currLine, currPos, yytext); exit(0);}
-{IDENTIFIER}({UNDERSCORE})+		{printf("Error at line %d, column %d: identifier \"%s\" cannot end with an underscore\n", currLine, currPos, yytext); exit(0);}
+({DIGIT}|{UNDERSCORE})+{IDENTIFIER}		/*{printf("Error at line %d, column %d: identifier \"%s\" must begin with a letter\n", currLine, currPos, yytext); exit(0);}*/
+{IDENTIFIER}({UNDERSCORE})+		/*{printf("Error at line %d, column %d: identifier \"%s\" cannot end with an underscore\n", currLine, currPos, yytext); exit(0);}*/
 
 	/* make sure this is at the end of the rules, it will catch anything that is not recognized except newlines (characters not in language) */
-	/* Error 1 */
-.  /* ERROR *i */
+.  /* ERROR 1 */
 
 <<EOF>> {return yy::parser::make_END(LOC):}
 
