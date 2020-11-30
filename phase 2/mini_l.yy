@@ -210,20 +210,16 @@ comp: EQ {printf("comp -> EQ\n");}
    |  GTE {printf("comp -> GTE\n");}
    ;
 
-expression: multiplicative_expr expression_loop {printf("expression -> multiplicative_expr expression_loop\n");}
+expression: multiplicative_expr {printf("expression -> multiplicative_expr\n");}
+         | multiplicative_expr ADD expression {printf("expression ->  multiplicative_expr ADD expression\n");}
+         | multiplicative_expr SUB expression {printf("expression ->  multiplicative_expr SUB expression\n");}
          ;
-expression_loop:  /* epsilon */ {printf("expression_loop -> EPSILON\n");}
-               |  expression_loop ADD multiplicative_expr {printf("expression_loop ->  expression_loop ADD multiplicative_expr\n");}
-               |  expression_loop SUB multiplicative_expr {printf("expression_loop -> expression_loop SUB multiplicative_expr\n");}
-               ;
 
-multiplicative_expr: term multi_loop {printf("multiplicative_expr -> term multi_loop\n");}
+multiplicative_expr: term {printf("multiplicative_expr -> term\n");}
+                  | term MULT multiplicative_expr {printf("multiplicative_expr -> term MULT multiplicative_expr\n");}
+                  | term DIV multiplicative_expr {printf("multiplicative_expr -> term DIV multiplicative_expr\n");}
+                  | term MOD multiplicative_expr {printf("multiplicative_expr -> term MOD multiplicative_expr\n");}
                   ;
-multi_loop: /* epsilon */ {printf("multi_loop -> EPSILON\n");}
-         |  multi_loop MULT term {printf("multi_loop -> multi_loop MULT term\n");}
-         |  multi_loop DIV term {printf("multi_loop -> multi_loop DIV term\n");}
-         |  multi_loop MOD term  {printf("multi_loop -> multi_loop MOD term\n");}
-         ;
 
 term: term_top {printf("term -> term_top\n");}
    |  SUB term_top %prec UMINUS {printf("term -> SUB term_top\n");}
