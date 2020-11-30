@@ -27,6 +27,13 @@
          string code;
          list<string> ids;
       };
+
+      struct var_type
+      {
+         string code;
+         string index;
+         bool isAnArray;
+      };
       /* end the structures for non-terminal types */
 }
 
@@ -82,7 +89,8 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %type <list<string>> id_loop
 
  /* Data type may change */
-%type <string> statement var A expression multiplicative_expr term term_top
+%type <string> statement A expression multiplicative_expr term term_top
+%type <var_type> var
 %% 
 
 prog_start: functions {cout << $1 << endl;}
@@ -178,7 +186,14 @@ statement: A {$$ = $1;}
 
 A: var ASSIGN expression 
    {
-      $$ = "= " + $1 + ", " + $3;
+      if ($1.isAnArray)
+      {
+         $$ = "[]= " + $1.code + ", " + $1.index + ", " + $3 + "\n";
+      }
+      else 
+      {
+         $$ = "= " + $1.code + ", " + $3;
+      }
    }
    | var error expression {yyerrok; yyerror("Syntax error, \":=\" expected.");}
    ;
@@ -266,7 +281,7 @@ term: term_top {$$ = $1;}
    |  SUB term_top %prec UMINUS {printf("term -> SUB term_top\n");}
    |  ident term_expression {printf("term -> ident term_expression\n");}
    ;
-term_top: var {$$ = $1;}
+term_top: var {$$ = $1.code;}
       |  NUMBER {$$ = to_string($1);}
       |  L_PAREN expression R_PAREN {printf("term_top -> L_PAREN expression R_PAREN\n");}
       ;
@@ -278,8 +293,13 @@ term_exp:   expression {printf("term_exp -> expression\n");}
          |  expression error term_exp {yyerrok; yyerror("Syntax error, missing comma inbetween expressions.");}
          ;
 
-var:  ident {$$ = "_" + $1;}
-   |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET {printf("var -> ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET\n");}
+var:  ident {$$.code = "_" + $1; $$.index = ""; $$.isAnArray = false;}
+   |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET 
+      {
+         $$.code = "_" + $1;
+         $$.index = $3;
+         $$.isAnArray = true;
+      }
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET
       {
          printf("var -> ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET\n");
