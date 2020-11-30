@@ -3,8 +3,10 @@ beginparams
 endparams
 beginlocals
 	a,b,c : integer;
+	t : array [20] of integer;
 endlocals
 beginbody
 	a := 69;
 	b := 20;
+	t[a] := a;
 endbody
