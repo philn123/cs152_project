@@ -1,0 +1,11 @@
+function sum;
+beginparams
+endparams
+beginlocals
+	a,b,c : integer;
+endlocals
+beginbody
+	read a,b;
+	c := a + c;
+	write c;
+endbody
