@@ -77,9 +77,12 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 
 %start prog_start
 
-%type <string> functions function ident statement_loop
+%type <string> functions function ident statement_loop comp
 %type <dec_type> dec_loop declaration
 %type <list<string>> id_loop
+
+ /* Data type may change */
+%type <string> statement var A expression multiplicative_expr term term_top
 %% 
 
 prog_start: functions {cout << $1 << endl;}
@@ -124,9 +127,9 @@ dec_loop:    /* epsilon */ {$$.code = ""; $$.ids = list<string>(); }//empty code
         |   declaration error dec_loop{yy::parser::error(@2, "Syntax error, missing semicolon in declaration."); yyerrok;}
         ;
 
-statement_loop:   statement SEMICOLON {printf("statement_loop -> statement SEMICOLON\n");}
+statement_loop:   statement SEMICOLON {$$ = $1;}
+               | statement_loop statement SEMICOLON {$$ = $1 + "\n" + $2 + "\n";}
                | statement error {yyerrok; yyerror("Syntax error, missing semicolon in statement.");}
-               | statement_loop statement SEMICOLON {printf("statement_loop -> statement_loop statement SEMICOLON\n");}
                | statement_loop statement error {yyerrok; yyerror("Syntax error, missing semicolon in statement.");}
                ;
             
@@ -158,11 +161,11 @@ declaration:   id_loop COLON INTEGER
                ;
             
 id_loop: ident {$$.push_back($1);}
-      | id_loop COMMA ident {$$ = $1; $$.push_front($3);}
+      | id_loop COMMA ident {$$ = $1; $$.push_back($3);}
       | id_loop error ident {yy::parser::error(@2, "Syntax error, missing semicolon in declaration."); yyerrok;}
       ;
 
-statement: A {printf("statement -> A\n");}
+statement: A {$$ = $1;}
          | B {printf("statement -> B\n");}
          | C {printf("statement -> C\n");}
          | D {printf("statement -> D\n");}
@@ -173,7 +176,10 @@ statement: A {printf("statement -> A\n");}
          | I {printf("statement -> I\n");}
          ;
 
-A: var ASSIGN expression {printf("A -> var ASSIGN expression\n");}
+A: var ASSIGN expression 
+   {
+      $$ = "= " + $1 + ", " + $3;
+   }
    | var error expression {yyerrok; yyerror("Syntax error, \":=\" expected.");}
    ;
 
@@ -237,31 +243,31 @@ relations:  expression comp expression {printf("relations -> expression comp exp
          |  L_PAREN bool_expr R_PAREN {printf("relations -> L_PAREN bool_expr R_PAREN\n");}
          ;
 
-comp: EQ {printf("comp -> EQ\n");}
-   |  NEQ {printf("comp -> NEQ\n");}
-   |  LT {printf("comp -> LT\n");}
-   |  GT {printf("comp -> GT\n");}
-   |  LTE {printf("comp -> LTE\n");}
-   |  GTE {printf("comp -> GTE\n");}
+comp: EQ {$$ = "==";}
+   |  NEQ {$$ = "!=";}
+   |  LT {$$ = "<";}
+   |  GT {$$ = ">";}
+   |  LTE {$$ = "<=";}
+   |  GTE {$$ = ">=";}
    ;
 
-expression: multiplicative_expr {printf("expression -> multiplicative_expr\n");}
+expression: multiplicative_expr {$$ = $1;}
          | multiplicative_expr ADD expression {printf("expression ->  multiplicative_expr ADD expression\n");}
          | multiplicative_expr SUB expression {printf("expression ->  multiplicative_expr SUB expression\n");}
          ;
 
-multiplicative_expr: term {printf("multiplicative_expr -> term\n");}
+multiplicative_expr: term {$$ = $1;}
                   | term MULT multiplicative_expr {printf("multiplicative_expr -> term MULT multiplicative_expr\n");}
                   | term DIV multiplicative_expr {printf("multiplicative_expr -> term DIV multiplicative_expr\n");}
                   | term MOD multiplicative_expr {printf("multiplicative_expr -> term MOD multiplicative_expr\n");}
                   ;
 
-term: term_top {printf("term -> term_top\n");}
+term: term_top {$$ = $1;}
    |  SUB term_top %prec UMINUS {printf("term -> SUB term_top\n");}
    |  ident term_expression {printf("term -> ident term_expression\n");}
    ;
-term_top: var {printf("term_top -> var\n");}
-      |  NUMBER {printf("term_top -> NUMBER %d\n", $1);}
+term_top: var {$$ = $1;}
+      |  NUMBER {$$ = to_string($1);}
       |  L_PAREN expression R_PAREN {printf("term_top -> L_PAREN expression R_PAREN\n");}
       ;
 term_expression: L_PAREN term_exp R_PAREN {printf("term_expression -> L_PAREN term_exp R_PAREN\n");}
@@ -272,7 +278,7 @@ term_exp:   expression {printf("term_exp -> expression\n");}
          |  expression error term_exp {yyerrok; yyerror("Syntax error, missing comma inbetween expressions.");}
          ;
 
-var:  ident {printf("var -> ident\n");}
+var:  ident {$$ = "_" + $1;}
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET {printf("var -> ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET\n");}
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET
       {
