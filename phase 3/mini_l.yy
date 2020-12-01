@@ -31,10 +31,13 @@
       struct var_type
       {
          string code;
+         string tempRegName;
          string index;
          bool isAnArray;
       };
+
       /* end the structures for non-terminal types */
+      string createTempRegister();
 }
 
 %code
@@ -89,8 +92,8 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %type <list<string>> id_loop
 
  /* Data type may change */
-%type <string> statement A expression multiplicative_expr term term_top
-%type <var_type> var
+%type <string> statement A
+%type <var_type> var var_loop expression multiplicative_expr term term_top
 %% 
 
 prog_start: functions {cout << $1 << endl;}
@@ -136,7 +139,7 @@ dec_loop:    /* epsilon */ {$$.code = ""; $$.ids = list<string>(); }//empty code
         ;
 
 statement_loop:   statement SEMICOLON {$$ = $1;}
-               | statement_loop statement SEMICOLON {$$ = $1 + "\n" + $2 + "\n";}
+               | statement_loop statement SEMICOLON {$$ = $1 + "\n" + $2;}
                | statement error {yyerrok; yyerror("Syntax error, missing semicolon in statement.");}
                | statement_loop statement error {yyerrok; yyerror("Syntax error, missing semicolon in statement.");}
                ;
@@ -188,11 +191,16 @@ A: var ASSIGN expression
    {
       if ($1.isAnArray)
       {
-         $$ = "[]= " + $1.code + ", " + $1.index + ", " + $3 + "\n";
+         $$ = "[]= " + $1.code + ", " + $1.index + ", " + $3.code;
       }
-      else 
+      else if ($3.tempRegName.empty())
       {
-         $$ = "= " + $1.code + ", " + $3;
+         $$ = "= " + $1.code + ", " + $3.code;
+      }
+      else
+      {
+         $$ = $3.code;
+         $$ += "= " + $1.code + ", " + $3.tempRegName + "\n";
       }
    }
    | var error expression {yyerrok; yyerror("Syntax error, \":=\" expected.");}
@@ -266,23 +274,85 @@ comp: EQ {$$ = "==";}
    |  GTE {$$ = ">=";}
    ;
 
-expression: multiplicative_expr {$$ = $1;}
-         | multiplicative_expr ADD expression {printf("expression ->  multiplicative_expr ADD expression\n");}
-         | multiplicative_expr SUB expression {printf("expression ->  multiplicative_expr SUB expression\n");}
+expression: multiplicative_expr {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
+         | expression ADD multiplicative_expr
+         {
+            string tempName = createTempRegister();
+            string secondOperator;
+            string output = "";
+
+            if ($1.tempRegName.empty()) //so its a number
+            {
+               secondOperator = $1.code;
+            }
+            else  //more than two numbers
+            {
+               output += $1.code;
+               secondOperator = $1.tempRegName;
+            }
+
+            if ($3.tempRegName.empty()) //also a number
+            {
+               output += ". " + tempName + "\n";
+               output += "+ " + tempName + ", " + secondOperator + ", " + $3.code + "\n";
+            }
+            else // TODO: NOT WORKING I THINK
+            {
+               output += ". " + tempName + "\n";
+               output += "+ " + tempName + ", " + secondOperator + ", " + $3.tempRegName + "\n";
+            }
+
+            $$.code = output;
+            $$.tempRegName = tempName;
+            $$.isAnArray = false;
+            $$.index = "";
+         }
+         | expression SUB multiplicative_expr 
+         {
+            string tempName = createTempRegister();
+            string secondOperator;
+            string output = "";
+
+            if ($1.tempRegName.empty()) //so its a number
+            {
+               secondOperator = $1.code;
+            }
+            else  //more than two numbers
+            {
+               output += $1.code;
+               secondOperator = $1.tempRegName;
+            }
+
+            if ($3.tempRegName.empty()) //also a number
+            {
+               output += ". " + tempName + "\n";
+               output += "- " + tempName + ", " + secondOperator + ", " + $3.code + "\n";
+            }
+            else // TODO: NOT WORKING I THINK
+            {
+               output += ". " + tempName + "\n";
+               output += "- " + tempName + ", " + secondOperator + ", " + $3.tempRegName;
+            }
+
+            $$.code = output;
+            $$.tempRegName = tempName;
+            $$.isAnArray = false;
+            $$.index = "";
+         }
          ;
 
-multiplicative_expr: term {$$ = $1;}
-                  | term MULT multiplicative_expr {printf("multiplicative_expr -> term MULT multiplicative_expr\n");}
-                  | term DIV multiplicative_expr {printf("multiplicative_expr -> term DIV multiplicative_expr\n");}
-                  | term MOD multiplicative_expr {printf("multiplicative_expr -> term MOD multiplicative_expr\n");}
+multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
+                  | multiplicative_expr MULT term {printf("multiplicative_expr -> multiplicative_expr MULT term \n");}
+                  | multiplicative_expr DIV term {printf("multiplicative_expr -> multiplicative_expr DIV term \n");}
+                  | multiplicative_expr MOD term  {printf("multiplicative_expr -> multiplicative_expr MOD term \n");}
                   ;
 
-term: term_top {$$ = $1;}
+term: term_top {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
    |  SUB term_top %prec UMINUS {printf("term -> SUB term_top\n");}
    |  ident term_expression {printf("term -> ident term_expression\n");}
    ;
-term_top: var {$$ = $1.code;}
-      |  NUMBER {$$ = to_string($1);}
+term_top: var {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
+      |  NUMBER {$$.code = to_string($1); $$.tempRegName = ""; $$.isAnArray = false; $$.index = "";}
       |  L_PAREN expression R_PAREN {printf("term_top -> L_PAREN expression R_PAREN\n");}
       ;
 term_expression: L_PAREN term_exp R_PAREN {printf("term_expression -> L_PAREN term_exp R_PAREN\n");}
@@ -293,12 +363,13 @@ term_exp:   expression {printf("term_exp -> expression\n");}
          |  expression error term_exp {yyerrok; yyerror("Syntax error, missing comma inbetween expressions.");}
          ;
 
-var:  ident {$$.code = "_" + $1; $$.index = ""; $$.isAnArray = false;}
+var:  ident {$$.code = "_" + $1; $$.index = $1; $$.isAnArray = false; $$.tempRegName = "";}
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET 
       {
          $$.code = "_" + $1;
-         $$.index = $3;
+         $$.index = "_" + $3.index;
          $$.isAnArray = true;
+         $$.tempRegName = $3.tempRegName;
       }
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET
       {
@@ -309,6 +380,13 @@ var:  ident {$$.code = "_" + $1; $$.index = ""; $$.isAnArray = false;}
 ident:   IDENT {$$ = $1;}
       ;
 %%
+
+string createTempRegister()
+{
+   static int regNum = 0;
+   return "_temp_" + to_string(regNum++);
+}
+
 int main(int argc, char *argv[])
 {
 	yy::parser p;
@@ -324,4 +402,3 @@ void yyerror(const char *msg)
 {
     cout << "-----ERROR-----" << endl;
 }
-
