@@ -1,0 +1,11 @@
+
+func main
+. a
+. b
+. c
+
+.[] t, 20
+= _a, 69
+= _b, 20
+=[] _c, _t, _a
+endfunc

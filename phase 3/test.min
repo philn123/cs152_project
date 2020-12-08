@@ -1,14 +1,12 @@
-function sum;
+function main;
 beginparams
 endparams
 beginlocals
-	a,b,c,k : integer;
+	a,b,c : integer;
 	t : array [20] of integer;
 endlocals
 beginbody
 	a := 69;
 	b := 20;
-	k := 0;
-	t[a] := a;
-	k := 1 + 2 + 4;
+	c := t[a];
 endbody

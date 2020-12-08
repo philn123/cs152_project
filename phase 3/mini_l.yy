@@ -114,7 +114,7 @@ function:   FUNCTION ident SEMICOLON
                int i = 0;
                for (list<string>::iterator it = $5.ids.begin(); it != $5.ids.end(); ++it)
                {
-                  $$ += *it + " $" + to_string(i) + "\n";
+                  $$ += "= " + *it + ", $" + to_string(i) + "\n";
                   ++i;
                }
 
@@ -157,7 +157,7 @@ declaration:   id_loop COLON INTEGER
                {
                   for(list<string>::iterator it = $1.begin(); it != $1.end(); ++it)
                   {
-                     $$.code += ".[] " + *it + ", " + to_string($5) + "\n";
+                     $$.code += ".[] " + *it + ", " + to_string($5);
                      $$.ids.push_back(*it);
                   }
                }
@@ -192,6 +192,10 @@ A: var ASSIGN expression
       if ($1.isAnArray)
       {
          $$ = "[]= " + $1.code + ", " + $1.index + ", " + $3.code;
+      }
+      else if ($3.isAnArray)
+      {
+         $$ = "=[] " + $1.code + ", " + $3.code + ", " + $3.index + "\n";
       }
       else if ($3.tempRegName.empty())
       {
@@ -298,6 +302,7 @@ expression: multiplicative_expr {$$.code = $1.code; $$.tempRegName = $1.tempRegN
             }
             else // TODO: NOT WORKING I THINK
             {
+               output += $3.code;
                output += ". " + tempName + "\n";
                output += "+ " + tempName + ", " + secondOperator + ", " + $3.tempRegName + "\n";
             }
@@ -330,6 +335,7 @@ expression: multiplicative_expr {$$.code = $1.code; $$.tempRegName = $1.tempRegN
             }
             else // TODO: NOT WORKING I THINK
             {
+               output += $3.code;
                output += ". " + tempName + "\n";
                output += "- " + tempName + ", " + secondOperator + ", " + $3.tempRegName;
             }
@@ -342,18 +348,122 @@ expression: multiplicative_expr {$$.code = $1.code; $$.tempRegName = $1.tempRegN
          ;
 
 multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
-                  | multiplicative_expr MULT term {printf("multiplicative_expr -> multiplicative_expr MULT term \n");}
-                  | multiplicative_expr DIV term {printf("multiplicative_expr -> multiplicative_expr DIV term \n");}
-                  | multiplicative_expr MOD term  {printf("multiplicative_expr -> multiplicative_expr MOD term \n");}
+                  | multiplicative_expr MULT term 
+                  {
+                     string multTempName = createTempRegister();
+                     string secondOperator;
+                     string output = "";
+
+                     if ($1.tempRegName.empty()) //so its a number
+                     {
+                        secondOperator = $1.code;
+                     }
+                     else  //more than two numbers
+                     {
+                        output += $1.code;
+                        secondOperator = $1.tempRegName;
+                     }
+
+                     if ($3.tempRegName.empty()) //also a number
+                     {
+                        output += ". " + multTempName + "\n";
+                        output += "* " + multTempName + ", " + secondOperator + ", " + $3.code + "\n";
+                     }
+                     else // TODO: NOT WORKING I THINK
+                     {
+                        output += $3.code;
+                        output += ". " + multTempName + "\n";
+                        output += "* " + multTempName + ", " + secondOperator + ", " + $3.tempRegName;
+                     }
+
+                     $$.code = output;
+                     $$.tempRegName = multTempName;
+                     $$.isAnArray = false;
+                     $$.index = "";
+
+                  }
+                  | multiplicative_expr DIV term 
+                  {
+                     string divTempName = createTempRegister();
+                     string secondOperator;
+                     string output = "";
+
+                     if ($1.tempRegName.empty()) //so its a number
+                     {
+                        secondOperator = $1.code;
+                     }
+                     else  //more than two numbers
+                     {
+                        output += $1.code;
+                        secondOperator = $1.tempRegName;
+                     }
+
+                     if ($3.tempRegName.empty()) //also a number
+                     {
+                        output += ". " + divTempName + "\n";
+                        output += "/ " + divTempName + ", " + secondOperator + ", " + $3.code + "\n";
+                     }
+                     else // TODO: NOT WORKING I THINK
+                     {
+                        output += $3.code;
+                        output += ". " + divTempName + "\n";
+                        output += "/ " + divTempName + ", " + secondOperator + ", " + $3.tempRegName;
+                     }
+
+                     $$.code = output;
+                     $$.tempRegName = divTempName;
+                     $$.isAnArray = false;
+                     $$.index = "";
+
+                  }
+                  | multiplicative_expr MOD term
+                  {
+                     string modTempName = createTempRegister();
+                     string secondOperator;
+                     string output = "";
+
+                     if ($1.tempRegName.empty()) //so its a number
+                     {
+                        secondOperator = $1.code;
+                     }
+                     else  //more than two numbers
+                     {
+                        output += $1.code;
+                        secondOperator = $1.tempRegName;
+                     }
+
+                     if ($3.tempRegName.empty()) //also a number
+                     {
+                        output += ". " + modTempName + "\n";
+                        output += "% " + modTempName + ", " + secondOperator + ", " + $3.code + "\n";
+                     }
+                     else // TODO: NOT WORKING I THINK
+                     {
+                        output += $3.code;
+                        output += ". " + modTempName + "\n";
+                        output += "% " + modTempName + ", " + secondOperator + ", " + $3.tempRegName;
+                     }
+
+                     $$.code = output;
+                     $$.tempRegName = modTempName;
+                     $$.isAnArray = false;
+                     $$.index = "";
+                  }
                   ;
 
 term: term_top {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
-   |  SUB term_top %prec UMINUS {printf("term -> SUB term_top\n");}
+   |  SUB term_top %prec UMINUS { //TODO printf("term -> SUB term_top\n");}
    |  ident term_expression {printf("term -> ident term_expression\n");}
    ;
 term_top: var {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
       |  NUMBER {$$.code = to_string($1); $$.tempRegName = ""; $$.isAnArray = false; $$.index = "";}
-      |  L_PAREN expression R_PAREN {printf("term_top -> L_PAREN expression R_PAREN\n");}
+      |  L_PAREN expression R_PAREN 
+      {
+         $$.code = $2.code;
+         $$.tempRegName = $2.tempRegName;
+         $$.isAnArray = $2.isAnArray;
+         $$.index = $2.isAnArray;
+      }
       ;
 term_expression: L_PAREN term_exp R_PAREN {printf("term_expression -> L_PAREN term_exp R_PAREN\n");}
                | L_PAREN R_PAREN {printf("term_expression -> L_PAREN R_PAREN\n");}
@@ -373,6 +483,7 @@ var:  ident {$$.code = "_" + $1; $$.index = $1; $$.isAnArray = false; $$.tempReg
       }
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET
       {
+         // TODO 2-D ARRAY
          printf("var -> ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET\n");
       }
    ;
