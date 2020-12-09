@@ -6,7 +6,10 @@ beginlocals
 	t : array [20] of integer;
 endlocals
 beginbody
-	a := 69;
-	b := 20;
-	c := t[a];
+	a := 1 + 1;
+	b := 2 + 2;
+	t[0] := a;
+	t[1] := t[0];
+	c := t[0] + t[1] + 10;
+	write t[1], b, c;
 endbody

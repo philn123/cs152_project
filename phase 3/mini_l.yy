@@ -21,6 +21,7 @@
     #include <list>
     #include <string>
     #include <functional>
+    #include <sstream>
     using namespace std;
       /* define the sturctures using as types for non-terminals */
       struct dec_type{
@@ -28,7 +29,7 @@
          list<string> ids;
       };
 
-      struct var_type
+      struct node
       {
          string code;
          string tempRegName;
@@ -36,6 +37,14 @@
          bool isAnArray;
       };
 
+      struct term_type
+      {
+         string code;
+         string tempRegName;
+         string index;
+         bool isAnArray;
+         string type;
+      };
       /* end the structures for non-terminal types */
       string createTempRegister();
 }
@@ -92,8 +101,10 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %type <list<string>> id_loop
 
  /* Data type may change */
-%type <string> statement A
-%type <var_type> var var_loop expression multiplicative_expr term term_top
+%type <string> statement A G
+%type <node> var expression multiplicative_expr term
+%type <vector<node*>> var_loop
+%type <term_type> term_top
 %% 
 
 prog_start: functions {cout << $1 << endl;}
@@ -182,7 +193,7 @@ statement: A {$$ = $1;}
          | D {printf("statement -> D\n");}
          | E {printf("statement -> E\n");}
          | F {printf("statement -> F\n");}
-         | G {printf("statement -> G\n");}
+         | G {$$ = $1;}
          | H {printf("statement -> H\n");}
          | I {printf("statement -> I\n");}
          ;
@@ -191,11 +202,19 @@ A: var ASSIGN expression
    {
       if ($1.isAnArray)
       {
-         $$ = "[]= " + $1.code + ", " + $1.index + ", " + $3.code;
+         if (!$3.tempRegName.empty())
+         {
+            $$ = $3.code;
+            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.tempRegName + "\n";
+         }
+         else
+         {
+            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.code + "\n";
+         }
       }
-      else if ($3.isAnArray)
+      else if ($3.isAnArray && !$1.isAnArray)
       {
-         $$ = "=[] " + $1.code + ", " + $3.code + ", " + $3.index + "\n";
+         $$ = "=[] " + $1.code + ", " + $3.code + ", " + $3.index;
       }
       else if ($3.tempRegName.empty())
       {
@@ -204,7 +223,7 @@ A: var ASSIGN expression
       else
       {
          $$ = $3.code;
-         $$ += "= " + $1.code + ", " + $3.tempRegName + "\n";
+         $$ += "= " + $1.code + ", " + $3.tempRegName;
       }
    }
    | var error expression {yyerrok; yyerror("Syntax error, \":=\" expected.");}
@@ -237,11 +256,44 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
 F: READ var_loop {printf("F -> READ var_loop\n");}
    ;
 
-G: WRITE var_loop {printf("G -> WRITE var_loop\n");}
+G: WRITE var_loop 
+   {
+      for (int i = 0; i < $2.size(); ++i) //var_loop is vector
+      {
+         if ($2[i]->isAnArray)
+         {
+            $$ += ".[]> " + $2[i]->code + ", " + $2[i]->index + "\n";
+         }
+         else
+         {
+            $$ += ".> " + $2[i]->code + "\n";
+         }
+      }
+
+   }
    ;
 
-var_loop:  var {printf("var_loop -> var\n");}
-         | var COMMA var_loop {printf("var_loop -> var COMMA var_loop \n");}
+var_loop:  var 
+         {
+            node *temp = new node();
+            temp->code = $1.code;
+            temp->tempRegName = $1.tempRegName; 
+            temp->isAnArray = $1.isAnArray; 
+            temp->index = $1.index;
+
+            $$.push_back(temp);
+         }
+         | var COMMA var_loop 
+         {
+            node *temp = new node();
+            temp->code = $1.code;
+            temp->tempRegName = $1.tempRegName; 
+            temp->isAnArray = $1.isAnArray; 
+            temp->index = $1.index;
+
+            $$.push_back(temp);
+            $$.insert($$.end(), $3.begin(), $3.end());
+         }
          | var var_loop {printf("Syntax error at line %d position %d: Missing comma in variable list.\n", currLine, currPos);}
          ;
 
@@ -451,18 +503,69 @@ multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $
                   }
                   ;
 
-term: term_top {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
-   |  SUB term_top %prec UMINUS { //TODO printf("term -> SUB term_top\n");}
+term: term_top 
+      {
+         if ($1.type.compare("variable") == 0)
+         {
+            string newTempRegName = createTempRegister();
+
+            if ($1.isAnArray)
+            {
+               $$.code = ". " + newTempRegName + "\n";
+               $$.code += "=[] " + newTempRegName + ", " + $1.code + ", " + $1.index + "\n";
+            }
+            else
+            {
+               $$.code = ". " + newTempRegName + "\n";
+               $$.code += "= " + newTempRegName + ", " + $1.code + "\n";
+            }
+
+            $$.tempRegName = newTempRegName;
+            $$.index = $1.index;
+            $$.isAnArray = $1.isAnArray;
+         }
+         else if ($1.type.compare("number") == 0)
+         {
+            $$.code = $1.code;
+            $$.tempRegName = $1.tempRegName;
+            $$.isAnArray = $1.isAnArray;
+            $$.index = $1.index;
+         }
+         else //TODO
+         {
+            $$.code = $1.code;
+            $$.tempRegName = $1.tempRegName;
+            $$.isAnArray = $1.isAnArray;
+            $$.index = $1.index;
+         }
+      }
+   |  SUB term_top %prec UMINUS {//TODO printf("term -> SUB term_top\n");
+                  }
    |  ident term_expression {printf("term -> ident term_expression\n");}
    ;
-term_top: var {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
-      |  NUMBER {$$.code = to_string($1); $$.tempRegName = ""; $$.isAnArray = false; $$.index = "";}
+term_top: var 
+         {
+            $$.code = $1.code; 
+            $$.tempRegName = $1.tempRegName; 
+            $$.isAnArray = $1.isAnArray; 
+            $$.index = $1.index;
+            $$.type = "variable";
+         }
+      |  NUMBER 
+      {
+         $$.code = to_string($1); 
+         $$.tempRegName = ""; 
+         $$.isAnArray = false; 
+         $$.index = to_string($1);
+         $$.type = "number";
+      }
       |  L_PAREN expression R_PAREN 
       {
          $$.code = $2.code;
          $$.tempRegName = $2.tempRegName;
          $$.isAnArray = $2.isAnArray;
          $$.index = $2.isAnArray;
+         $$.type = "";
       }
       ;
 term_expression: L_PAREN term_exp R_PAREN {printf("term_expression -> L_PAREN term_exp R_PAREN\n");}
@@ -473,11 +576,11 @@ term_exp:   expression {printf("term_exp -> expression\n");}
          |  expression error term_exp {yyerrok; yyerror("Syntax error, missing comma inbetween expressions.");}
          ;
 
-var:  ident {$$.code = "_" + $1; $$.index = $1; $$.isAnArray = false; $$.tempRegName = "";}
+var:  ident {$$.code = $1; $$.index = $1; $$.isAnArray = false; $$.tempRegName = "";}
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET 
       {
-         $$.code = "_" + $1;
-         $$.index = "_" + $3.index;
+         $$.code = $1;
+         $$.index = $3.index;
          $$.isAnArray = true;
          $$.tempRegName = $3.tempRegName;
       }
