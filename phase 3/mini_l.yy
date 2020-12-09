@@ -47,6 +47,7 @@
       };
       /* end the structures for non-terminal types */
       string createTempRegister();
+      string createLabel();
 }
 
 %code
@@ -101,8 +102,8 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %type <list<string>> id_loop
 
  /* Data type may change */
-%type <string> statement A G
-%type <node> var expression multiplicative_expr term
+%type <string> statement A B G 
+%type <node> var expression multiplicative_expr term bool_expr relation_and_expr relation_expr relations
 %type <vector<node*>> var_loop
 %type <term_type> term_top
 %% 
@@ -163,6 +164,7 @@ declaration:   id_loop COLON INTEGER
                      $$.code += ". " + *it + "\n";
                      $$.ids.push_back(*it);
                   }
+                  $$.code.pop_back(); //removes newline
                }
             |  id_loop COLON ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER
                {
@@ -188,7 +190,7 @@ id_loop: ident {$$.push_back($1);}
       ;
 
 statement: A {$$ = $1;}
-         | B {printf("statement -> B\n");}
+         | B {$$ = $1;}
          | C {printf("statement -> C\n");}
          | D {printf("statement -> D\n");}
          | E {printf("statement -> E\n");}
@@ -205,16 +207,12 @@ A: var ASSIGN expression
          if (!$3.tempRegName.empty())
          {
             $$ = $3.code;
-            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.tempRegName + "\n";
+            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.tempRegName;
          }
          else
          {
-            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.code + "\n";
+            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.code;
          }
-      }
-      else if ($3.isAnArray && !$1.isAnArray)
-      {
-         $$ = "=[] " + $1.code + ", " + $3.code + ", " + $3.index;
       }
       else if ($3.tempRegName.empty())
       {
@@ -229,7 +227,22 @@ A: var ASSIGN expression
    | var error expression {yyerrok; yyerror("Syntax error, \":=\" expected.");}
    ;
 
-B: IF bool_expr THEN statement_loop ENDIF {printf("B -> IF bool_expr THEN statement_loop ENDIF\n");}
+B: IF bool_expr THEN statement_loop ENDIF
+   {
+      // following fibonacci.mil output
+      string trueLabel = createLabel();
+      string falseLabel = createLabel();
+      string output = "";
+
+      output += $2.code + "\n";
+      output += "?:= " + trueLabel + ", " + $2.tempRegName + "\n";
+      output += ":= " + falseLabel + "\n";
+      output += ": " + trueLabel + "\n";
+      output += $4 + "\n";
+      output += ": " + falseLabel + "\n";
+
+      $$ = output;
+   }
    | IF bool_expr THEN statement_loop ELSE statement_loop ENDIF {printf("B -> IF bool_expr THEN statement_loop ELSE statement_loop ENDIF\n");}
    ;
 
@@ -301,25 +314,111 @@ H: CONTINUE {printf("H -> CONTINUE\n");};
 
 I: RETURN expression {printf("I -> RETURN expression\n");};
 
-bool_expr: relation_and_expr bool_expr_loop {printf("bool_expr -> relation_and_expr bool_expr_loop\n");}
-   ;
-bool_expr_loop:   /* epsilon */ {printf("bool_expr_loop -> epsilon\n");}
-               | bool_expr_loop OR relation_and_expr {printf("bool_expr_loop -> bool_expr_loop OR relation_and_expr\n");}
-               ;
+bool_expr: relation_and_expr 
+         {
+            $$.code = $1.code; 
+            $$.tempRegName = $1.tempRegName; 
+            $$.isAnArray = $1.isAnArray; 
+            $$.index = $1.index;
+         }
+         | bool_expr OR relation_and_expr 
+         {
+            string orTempName = createTempRegister();
 
-relation_and_expr: relation_expr relation_and_expr_loop {printf("relation_and_expr -> relation_expr relation_and_expr_loop\n");}
+            $$.code = $1.code + "\n" + $3.code + "\n";
+            $$.code += ". " + orTempName + "\n";   //probably should make a funciton for this
+            $$.code += "|| " + orTempName + ", " + $1.tempRegName + ", " + $3.tempRegName;
+         
+            $$.tempRegName = orTempName;
+         }
    ;
-relation_and_expr_loop:   /* epsilon */ {printf("relation_and_expr_loop -> epsilon\n");}
-               | relation_and_expr_loop AND relation_expr {printf("relation_and_expr_loop -> relation_and_expr_loop AND relation_expr\n");}
-               ;
 
-relation_expr: relations {printf("relation_expr -> relations\n");}
+relation_and_expr: relation_expr 
+                  {
+                     $$.code = $1.code; 
+                     $$.tempRegName = $1.tempRegName; 
+                     $$.isAnArray = $1.isAnArray; 
+                     $$.index = $1.index;
+                  }
+                  | relation_and_expr AND relation_expr
+                  {
+                     string andTempName = createTempRegister();
+
+                     $$.code = $1.code + "\n" + $3.code + "\n";
+                     $$.code += ". " + andTempName + "\n";   //probably should make a funciton for this
+                     $$.code += "&& " + andTempName + ", " + $1.tempRegName + ", " + $3.tempRegName;
+                  
+                     $$.tempRegName = andTempName;
+
+                  }
+   ;
+
+relation_expr: relations 
+            {
+               $$.code = $1.code; 
+               $$.tempRegName = $1.tempRegName; 
+               $$.isAnArray = $1.isAnArray; 
+               $$.index = $1.index;
+            }
             | NOT relations {printf("relation_expr -> NOT relations\n");}
             ;
-relations:  expression comp expression {printf("relations -> expression comp expression\n");}
-         |  TRUE {printf("relations -> TRUE\n");}
-         |  FALSE {printf("relations -> FALSE\n");}
-         |  L_PAREN bool_expr R_PAREN {printf("relations -> L_PAREN bool_expr R_PAREN\n");}
+relations:  expression comp expression 
+            {
+               // same as expression ADD multiplicative_expr logic
+               string relationTempName = createTempRegister();
+               string firstExpression;
+               string output = "";
+
+               if ($1.tempRegName.empty()) //so its a number
+               {
+                  firstExpression = $1.code;
+               }
+               else  // the expression is complex
+               {
+                  output += $1.code;
+                  firstExpression = $1.tempRegName;
+               }
+
+               if ($3.tempRegName.empty()) //single variable, not conplex
+               {
+                  output += ". " + relationTempName + "\n";
+                  output += $2 + " " + relationTempName + ", " + firstExpression + ", " + $3.code;
+               }
+               else
+               {
+                  output += $3.code;
+                  output += ". " + relationTempName + "\n";
+                  output += $2 + " " + relationTempName + ", " + firstExpression + ", " + $3.tempRegName;
+               }
+
+               $$.code = output;
+               $$.tempRegName = relationTempName;
+               $$.isAnArray = false;
+               $$.index = "";
+            }
+         |  TRUE 
+         {
+            string trueTempName = createTempRegister();
+
+            $$.code = ". " + trueTempName + "\n";
+            $$.code += "= " + trueTempName + ", 1";
+            $$.tempRegName = trueTempName;
+         }
+         |  FALSE
+         {
+            string trueTempName = createTempRegister();
+            
+            $$.code = ". " + trueTempName + "\n";
+            $$.code += "= " + trueTempName + ", 0";
+            $$.tempRegName = trueTempName;
+         }
+         |  L_PAREN bool_expr R_PAREN 
+         {
+            $$.code = $2.code; 
+            $$.tempRegName = $2.tempRegName; 
+            $$.isAnArray = $2.isAnArray; 
+            $$.index = $2.index;
+         }
          ;
 
 comp: EQ {$$ = "==";}
@@ -599,6 +698,12 @@ string createTempRegister()
 {
    static int regNum = 0;
    return "_temp_" + to_string(regNum++);
+}
+
+string createLabel()
+{
+   static int label_num = 0;
+   return "_label_" + to_string(label_num++);
 }
 
 int main(int argc, char *argv[])

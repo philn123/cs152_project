@@ -3,28 +3,35 @@ func main
 . b
 . c
 .[] t, 20
+= a, 5
+= b, 10
+= c, 69
 . _temp_0
-+ _temp_0, 1, 1
-= a, _temp_0
+= _temp_0, a
 . _temp_1
-+ _temp_1, 2, 2
-= b, _temp_1
+= _temp_1, b
 . _temp_2
-= _temp_2, a
-[]= t, 0, _temp_2
+= _temp_2, c
 . _temp_3
-=[] _temp_3, t, 0
-[]= t, 1, _temp_3
++ _temp_3, _temp_1, _temp_2
 . _temp_4
-=[] _temp_4, t, 0
+< _temp_4, _temp_0, _temp_3
 . _temp_5
-=[] _temp_5, t, 1
+= _temp_5, c
 . _temp_6
-+ _temp_6, _temp_4, _temp_5
+= _temp_6, a
 . _temp_7
-+ _temp_7, _temp_6, 10
-= c, _temp_7
-.[]> t, 1
+= _temp_7, b
+. _temp_8
++ _temp_8, _temp_6, _temp_7
+. _temp_9
+< _temp_9, _temp_5, _temp_8
+. _temp_10
+&& _temp_10, _temp_4, _temp_9
+?:= _label_0, _temp_10
+:= _label_1
+: _label_0
+.> a
+: _label_1
 .> b
-.> c
 endfunc

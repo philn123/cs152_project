@@ -6,10 +6,11 @@ beginlocals
 	t : array [20] of integer;
 endlocals
 beginbody
-	a := 1 + 1;
-	b := 2 + 2;
-	t[0] := a;
-	t[1] := t[0];
-	c := t[0] + t[1] + 10;
-	write t[1], b, c;
+	a := 5;
+	b := 10; 
+	c := 69;
+	if a < b + c and c < a + b then 
+		write a; 
+	endif;
+	write b;
 endbody
