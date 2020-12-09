@@ -1,11 +1,30 @@
-
 func main
 . a
 . b
 . c
-
 .[] t, 20
-= _a, 69
-= _b, 20
-=[] _c, _t, _a
+. _temp_0
++ _temp_0, 1, 1
+= a, _temp_0
+. _temp_1
++ _temp_1, 2, 2
+= b, _temp_1
+. _temp_2
+= _temp_2, a
+[]= t, 0, _temp_2
+. _temp_3
+=[] _temp_3, t, 0
+[]= t, 1, _temp_3
+. _temp_4
+=[] _temp_4, t, 0
+. _temp_5
+=[] _temp_5, t, 1
+. _temp_6
++ _temp_6, _temp_4, _temp_5
+. _temp_7
++ _temp_7, _temp_6, 10
+= c, _temp_7
+.[]> t, 1
+.> b
+.> c
 endfunc
