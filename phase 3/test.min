@@ -3,11 +3,14 @@ beginparams
 endparams
 beginlocals
 	a,b,c : integer;
-	t : array [20] of integer;
 endlocals
 beginbody
-	read a;
-
-	write a;
-		
+	a := 0;
+	b := 1;
+	c := 10;
+	if not(b == a) then
+		write c;
+	else
+		write a;
+	endif;
 endbody
