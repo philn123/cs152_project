@@ -103,13 +103,18 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %type <list<string>> id_loop
 
  /* Data type may change */
-%type <string> statement A B C D F G H
+%type <string> statement A B C D F G H I
 %type <node> var expression multiplicative_expr term bool_expr relation_and_expr relation_expr relations
-%type <vector<node*>> var_loop
+%type <vector<node*>> var_loop term_exp
 %type <term_type> term_top
 %% 
 
-prog_start: functions {cout << $1 << endl;}
+prog_start: functions 
+   {
+      string generated_code = $1;
+      backpatch(generated_code, "\n\n", "\n");
+      cout << generated_code << endl;
+   }
 	  ;
 
 functions: /* epsilon */ {$$ = "";}
@@ -198,7 +203,7 @@ statement: A {$$ = $1;}
          | F {$$ = $1;}
          | G {$$ = $1;}
          | H {$$ = $1;}
-         | I {printf("statement -> I\n");}
+         | I {$$ = $1;}
          ;
 
 A: var ASSIGN expression 
@@ -384,7 +389,27 @@ var_loop:  var
 
 H: CONTINUE {$$ = "continue";};
 
-I: RETURN expression {printf("I -> RETURN expression\n");};
+I: RETURN expression 
+   {
+      string output = "";
+      string returnTempName = "";
+
+      if ($2.tempRegName.empty()) //returning just a number
+      {
+         returnTempName = createTempRegister();
+         output += ". " + returnTempName + "\n";
+         output += "= " + returnTempName + ", " + $2.code + "\n";
+      }
+      else  //expression that is complex
+      {
+         returnTempName = $2.tempRegName;
+         output += $2.code + "\n";
+      }
+
+      output += "ret " + returnTempName + "\n";
+      $$ = output;
+   }
+   ;
 
 bool_expr: relation_and_expr 
          {
@@ -432,7 +457,20 @@ relation_expr: relations
                $$.isAnArray = $1.isAnArray; 
                $$.index = $1.index;
             }
-            | NOT relations {printf("relation_expr -> NOT relations\n");}
+            | NOT relations
+            {
+               string output = "";
+               string negationTempName = createTempRegister();
+
+               output += $2.code + "\n";
+               output += ". " + negationTempName + "\n";
+               output += "! " + negationTempName + ", " + $2.tempRegName + "\n";
+
+               $$.code = output;
+               $$.tempRegName = negationTempName;
+               $$.isAnArray = $2.isAnArray; 
+               $$.index = $2.index;
+            }
             ;
 relations:  expression comp expression 
             {
@@ -710,10 +748,66 @@ term: term_top
             $$.index = $1.index;
          }
       }
-   |  SUB term_top %prec UMINUS {//TODO printf("term -> SUB term_top\n");
-                  }
-   |  ident term_expression {printf("term -> ident term_expression\n");}
+   |  SUB term_top %prec UMINUS 
+   {
+      //TODO printf("term -> SUB term_top\n");
+   }
+   |  ident L_PAREN term_exp R_PAREN
+   {
+      string output = "";
+      string functionTempName = createTempRegister();
+
+      for (int i = 0; i < $3.size(); ++i)
+      {
+         output += $3[i]->code + "\n";
+         output += "param " + $3[i]->tempRegName + "\n";
+      }
+
+      output += ". " + functionTempName + "\n";
+      output += "call " + $1 + ", " + functionTempName + "\n";
+
+      $$.code = output;
+      $$.tempRegName = functionTempName;
+
+   }
+   |  ident L_PAREN R_PAREN
+   {
+      string output = "";
+      string functionTempName = createTempRegister();
+
+      output += ". " + functionTempName + "\n";
+      output += "call " + $1 + ", " + functionTempName + "\n";
+
+      $$.code = output;
+      $$.tempRegName = functionTempName;
+
+   }
    ;
+
+term_exp:   expression 
+         {
+            node *temp = new node();
+            temp->code = $1.code;
+            temp->tempRegName = $1.tempRegName; 
+            temp->isAnArray = $1.isAnArray; 
+            temp->index = $1.index;
+
+            $$.push_back(temp);
+         }
+         |  expression COMMA term_exp 
+         {
+            node *temp = new node();
+            temp->code = $1.code;
+            temp->tempRegName = $1.tempRegName; 
+            temp->isAnArray = $1.isAnArray; 
+            temp->index = $1.index;
+
+            $$.push_back(temp);
+            $$.insert($$.end(), $3.begin(), $3.end());
+         }
+         |  expression error term_exp {yyerrok; yyerror("Syntax error, missing comma inbetween expressions.");}
+         ;
+
 term_top: var 
          {
             $$.code = $1.code; 
@@ -739,13 +833,6 @@ term_top: var
          $$.type = "";
       }
       ;
-term_expression: L_PAREN term_exp R_PAREN {printf("term_expression -> L_PAREN term_exp R_PAREN\n");}
-               | L_PAREN R_PAREN {printf("term_expression -> L_PAREN R_PAREN\n");}
-               ;
-term_exp:   expression {printf("term_exp -> expression\n");}
-         |  expression COMMA term_exp {printf("term_exp -> expression COMMA term_exp");}
-         |  expression error term_exp {yyerrok; yyerror("Syntax error, missing comma inbetween expressions.");}
-         ;
 
 var:  ident {$$.code = $1; $$.index = $1; $$.isAnArray = false; $$.tempRegName = "";}
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET 
