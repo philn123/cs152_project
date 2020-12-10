@@ -48,6 +48,7 @@
       /* end the structures for non-terminal types */
       string createTempRegister();
       string createLabel();
+      void backpatch(string &, const string &, const string &);
 }
 
 %code
@@ -102,7 +103,7 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %type <list<string>> id_loop
 
  /* Data type may change */
-%type <string> statement A B G 
+%type <string> statement A B C D F G H
 %type <node> var expression multiplicative_expr term bool_expr relation_and_expr relation_expr relations
 %type <vector<node*>> var_loop
 %type <term_type> term_top
@@ -191,12 +192,12 @@ id_loop: ident {$$.push_back($1);}
 
 statement: A {$$ = $1;}
          | B {$$ = $1;}
-         | C {printf("statement -> C\n");}
-         | D {printf("statement -> D\n");}
+         | C {$$ = $1;}
+         | D {$$ = $1;}
          | E {printf("statement -> E\n");}
-         | F {printf("statement -> F\n");}
+         | F {$$ = $1;}
          | G {$$ = $1;}
-         | H {printf("statement -> H\n");}
+         | H {$$ = $1;}
          | I {printf("statement -> I\n");}
          ;
 
@@ -243,13 +244,70 @@ B: IF bool_expr THEN statement_loop ENDIF
 
       $$ = output;
    }
-   | IF bool_expr THEN statement_loop ELSE statement_loop ENDIF {printf("B -> IF bool_expr THEN statement_loop ELSE statement_loop ENDIF\n");}
+   | IF bool_expr THEN statement_loop ELSE statement_loop ENDIF 
+   {
+      // following fibonacci.mil output
+      string trueLabel = createLabel();
+      string falseLabel = createLabel();
+      string output = "";
+
+      output += $2.code + "\n";
+      output += "?:= " + trueLabel + ", " + $2.tempRegName + "\n";
+      output += $6 + "\n";  //false code here, not at the end
+      output += ":= " + falseLabel + "\n";
+      output += ": " + trueLabel + "\n";
+      output += $4 + "\n";
+      output += ": " + falseLabel + "\n";
+
+      $$ = output;
+
+   }
    ;
 
-C: WHILE bool_expr BEGINLOOP statement_loop ENDLOOP {printf("C -> WHILE bool_expr BEGINLOOP statement_loop ENDLOOP\n");}
+C: WHILE bool_expr BEGINLOOP statement_loop ENDLOOP 
+   {
+      //following primes.mil logic alongside lecture
+      string labelStart = createLabel();
+      string label1 = createLabel();
+      string label2 = createLabel();
+      string output = "";
+
+      // need to backpatch for continue
+      string replacement = ":= " + labelStart; //go to the start of loop again
+      backpatch($4, "continue", replacement);
+
+      output += ": " + labelStart + "\n";
+      output += $2.code + "\n";
+      output += "?:= " + label1 + ", " + $2.tempRegName + "\n";
+      output += ":= " + label2 + "\n"; // if false, go to label 2 (which is the end)
+      output += ": " + label1 + "\n"; // if true, we go here and execute statement loop
+      output += $4 + "\n";
+      output += ":= " + labelStart + "\n"; // finished one iteration of loop, check condition again
+      output += ": " + label2 + "\n"; // false, move on
+
+      $$ = output;
+   }
    ;
 
-D: DO BEGINLOOP statement_loop ENDLOOP WHILE bool_expr {printf("D -> DO BEGINLOOP statement_loop ENDLOOP WHILE bool_expr");}
+D: DO BEGINLOOP statement_loop ENDLOOP WHILE bool_expr
+   {
+      string labelStart = createLabel();
+      string label1 = createLabel();
+      string label2 = createLabel();
+      string output = "";
+
+      // need to backpatch for continue
+      string replacement = ":= " + labelStart; //go to the start of loop again
+      backpatch($3, "continue", replacement);
+
+      output += ": " + labelStart + "\n";
+      output += $3 + "\n";
+      output += ": " + label1 + "\n";
+      output += $6.code + "\n";
+      output += "?:= " + labelStart + ", " + $6.tempRegName + "\n";
+
+      $$ = output;
+   }
    ;
 
 E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP 
@@ -266,7 +324,21 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
    }
    ;
 
-F: READ var_loop {printf("F -> READ var_loop\n");}
+F: READ var_loop
+   {
+      for (int i = 0; i < $2.size(); ++i) //var_loop is vector
+      {
+         if ($2[i]->isAnArray)
+         {
+            $$ += ".[]< " + $2[i]->code + ", " + $2[i]->index + "\n";
+         }
+         else
+         {
+            $$ += ".< " + $2[i]->code + "\n";
+         }
+      }
+
+   }
    ;
 
 G: WRITE var_loop 
@@ -310,7 +382,7 @@ var_loop:  var
          | var var_loop {printf("Syntax error at line %d position %d: Missing comma in variable list.\n", currLine, currPos);}
          ;
 
-H: CONTINUE {printf("H -> CONTINUE\n");};
+H: CONTINUE {$$ = "continue";};
 
 I: RETURN expression {printf("I -> RETURN expression\n");};
 
@@ -375,7 +447,7 @@ relations:  expression comp expression
                }
                else  // the expression is complex
                {
-                  output += $1.code;
+                  output += $1.code + "\n";
                   firstExpression = $1.tempRegName;
                }
 
@@ -488,7 +560,7 @@ expression: multiplicative_expr {$$.code = $1.code; $$.tempRegName = $1.tempRegN
             {
                output += $3.code;
                output += ". " + tempName + "\n";
-               output += "- " + tempName + ", " + secondOperator + ", " + $3.tempRegName;
+               output += "- " + tempName + ", " + secondOperator + ", " + $3.tempRegName + "\n";
             }
 
             $$.code = output;
@@ -524,7 +596,7 @@ multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $
                      {
                         output += $3.code;
                         output += ". " + multTempName + "\n";
-                        output += "* " + multTempName + ", " + secondOperator + ", " + $3.tempRegName;
+                        output += "* " + multTempName + ", " + secondOperator + ", " + $3.tempRegName + "\n";
                      }
 
                      $$.code = output;
@@ -558,7 +630,7 @@ multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $
                      {
                         output += $3.code;
                         output += ". " + divTempName + "\n";
-                        output += "/ " + divTempName + ", " + secondOperator + ", " + $3.tempRegName;
+                        output += "/ " + divTempName + ", " + secondOperator + ", " + $3.tempRegName + "\n";
                      }
 
                      $$.code = output;
@@ -592,7 +664,7 @@ multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $
                      {
                         output += $3.code;
                         output += ". " + modTempName + "\n";
-                        output += "% " + modTempName + ", " + secondOperator + ", " + $3.tempRegName;
+                        output += "% " + modTempName + ", " + secondOperator + ", " + $3.tempRegName + "\n";
                      }
 
                      $$.code = output;
@@ -704,6 +776,16 @@ string createLabel()
 {
    static int label_num = 0;
    return "_label_" + to_string(label_num++);
+}
+
+void backpatch(string &str, const string &target, const string &new_string)
+{
+   size_t start_pos = 0;
+   while((start_pos = str.find(target, start_pos)) != string::npos)
+   {
+      str.replace(start_pos, target.length(), new_string);
+      start_pos += new_string.length();
+   }
 }
 
 int main(int argc, char *argv[])

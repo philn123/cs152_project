@@ -6,11 +6,8 @@ beginlocals
 	t : array [20] of integer;
 endlocals
 beginbody
-	a := 5;
-	b := 10; 
-	c := 69;
-	if a < b + c and c < a + b then 
-		write a; 
-	endif;
-	write b;
+	read a;
+
+	write a;
+		
 endbody
