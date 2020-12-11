@@ -599,7 +599,7 @@ var_loop:  var
             $$.push_back(temp);
             $$.insert($$.end(), $3.begin(), $3.end());
          }
-         | var var_loop {yy::parser::error(@1, "Syntax error at line %d position %d: Missing comma in variable list.\n"; errorHasOccured = true; yyerrok;}
+         | var var_loop {yy::parser::error(@1, "Syntax error: Missing comma in variable list."); errorHasOccured = true; yyerrok;}
          ;
 
 H: CONTINUE 
