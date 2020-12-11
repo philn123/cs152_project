@@ -22,6 +22,7 @@
     #include <string>
     #include <functional>
     #include <sstream>
+    #include <regex>
     using namespace std;
       /* define the sturctures using as types for non-terminals */
       struct dec_type{
@@ -58,6 +59,8 @@
       string createTempRegister();
       string createLabel();
       void backpatch(string &, const string &, const string &);
+      void replaceNewlines(string &, const string &, const string &);
+      int checkContinueLoop(string &);
 }
 
 %code
@@ -124,24 +127,34 @@ prog_start: functions
    {
       string generated_code = $1;
 
+      // Error 3
+      type main_function = FUNCTION;
+      if (symbol_table.find("main")->second != main_function)
+      {
+         errorHasOccured = true;
+         yy::parser::error(@1, "No main function defined");
+      }
+
       if (!errorHasOccured)
       {
-         backpatch(generated_code, "\n\n", "\n");
+         replaceNewlines(generated_code, "\n\n", "\n");
          cout << generated_code << endl;
       }
-      else
-      {
-         for (auto it = symbol_table.cbegin(); it != symbol_table.cend(); ++it)
-         {
-            cout << it->first << " " << it->second << endl;
-         }
-      }
-      
+      // else
+      // {
+      //    for(auto it = symbol_table.cbegin(); it != symbol_table.cend(); ++it)
+      //    {
+      //       cout << it->first << " " << it->second << endl;
+      //    }
+      // }
    }
 	  ;
 
 functions: /* epsilon */ {$$ = "";}
-	 | functions function	{$$ = $1 + "\n" + $2;}
+	 | functions function	
+    {
+      $$ = $1 + "\n" + $2;
+    }
 	 ;
 
 function:   FUNCTION ident SEMICOLON 
@@ -149,6 +162,16 @@ function:   FUNCTION ident SEMICOLON
             BEGINLOCALS dec_loop ENDLOCALS
             BEGINBODY statement_loop ENDBODY
             {
+               if (symbol_table.find($2) == symbol_table.end())
+               {
+                  symbol_table.insert({$2, FUNCTION});
+               }
+               else //found it 
+               {
+                  errorHasOccured = true;
+                  yy::parser::error(@2, "function name \"" + $2 + "\" is multiply-defined.");
+               }
+
                $$ = "func " + $2 + "\n"; //adding func name
                $$ += $5.code;
 
@@ -162,6 +185,23 @@ function:   FUNCTION ident SEMICOLON
                $$ += $8.code;
                $$ += $11;
                $$ += "endfunc";
+
+               // Error 9
+               regex continueReg("continue.+");
+               smatch matches;
+
+               for (sregex_iterator it = sregex_iterator($11.begin(), $11.end(), continueReg); 
+                  it != sregex_iterator(); it++)
+               {
+                  matches = *it;
+                  errorHasOccured = true;
+                  string tempString = matches.str(0);
+                  int pos = 8; // length of word continue
+                  
+                  string msg = "Error line " + tempString.substr(pos) + " : continue not within loop.";
+                  const char *c = msg.c_str();
+                  yyerror(c);
+               }
             }
             ;
          
@@ -176,13 +216,16 @@ dec_loop:    /* epsilon */ {$$.code = ""; $$.ids = list<string>(); }//empty code
                   $$.ids.push_back(*it);
                }
             }
-        |   declaration error dec_loop{yy::parser::error(@2, "Syntax error, missing semicolon in declaration."); yyerrok;}
+        |   declaration error dec_loop{yy::parser::error(@2, "Syntax error, missing semicolon in declaration."); yyerrok; 
+            errorHasOccured = true;}
         ;
 
 statement_loop:   statement SEMICOLON {$$ = $1;}
                | statement_loop statement SEMICOLON {$$ = $1 + "\n" + $2;}
-               | statement error {yyerrok; yyerror("Syntax error, missing semicolon in statement.");}
-               | statement_loop statement error {yyerrok; yyerror("Syntax error, missing semicolon in statement.");}
+               | statement error 
+               {yy::parser::error(@1, "Syntax error, missing semicolon in statement."); errorHasOccured = true; yyerrok;}
+               | statement_loop statement error 
+               {yy::parser::error(@1, "Syntax error, missing semicolon in statement."); errorHasOccured = true; yyerrok;}
                ;
             
 
@@ -196,20 +239,35 @@ declaration:   id_loop COLON INTEGER
                         $$.ids.push_back(*it);
                         symbol_table.insert({*it, INTEGER});
                      }
+                     else //found it 
+                     {
+                        errorHasOccured = true;
+                        yy::parser::error(@2, "symbol \"" + *it + "\" is multiply-defined.");
+                     }
+                  }
+               }
+            |  id_loop COLON ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER
+               {
+                  // Error 8
+                  if ($5 <= 0)
+                  {
+                     errorHasOccured = true;
+                     yy::parser::error(@1, "array size is less than 1");
+                  }
+
+                  for(list<string>::iterator it = $1.begin(); it != $1.end(); ++it)
+                  {
+                     if (symbol_table.find(*it) == symbol_table.end())
+                     {
+                        $$.code += ".[] " + *it + ", " + to_string($5);
+                        $$.ids.push_back(*it);
+                        symbol_table.insert({*it, ARRAY});
+                     }
                      else
                      {
                         errorHasOccured = true;
                         yy::parser::error(@2, "symbol \"" + *it + "\" is multiply-defined.");
                      }
-                     
-                  }
-               }
-            |  id_loop COLON ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER
-               {
-                  for(list<string>::iterator it = $1.begin(); it != $1.end(); ++it)
-                  {
-                     $$.code += ".[] " + *it + ", " + to_string($5);
-                     $$.ids.push_back(*it);
                   }
                }
             
@@ -474,7 +532,10 @@ var_loop:  var
          | var var_loop {printf("Syntax error at line %d position %d: Missing comma in variable list.\n", currLine, currPos);}
          ;
 
-H: CONTINUE {$$ = "continue";};
+H: CONTINUE 
+   {
+      $$ = "continue" + to_string(@1.begin.line); 
+   };
 
 I: RETURN expression 
    {
@@ -840,10 +901,67 @@ term: term_top
       }
    |  SUB term_top %prec UMINUS 
    {
-      //TODO printf("term -> SUB term_top\n");
+      string subTemp = createTempRegister();
+      if ($2.type.compare("variable") == 0)
+         {
+            string newTempRegName = createTempRegister();
+
+            if ($2.isAnArray)
+            {
+               $$.code = $2.code;
+               $$.code += ". " + newTempRegName + "\n";
+               $$.code += "=[] " + newTempRegName + ", " + $2.name + ", " + $2.index + "\n";
+            }
+            else
+            {
+               $$.code = ". " + newTempRegName + "\n";
+               $$.code += "= " + newTempRegName + ", " + $2.code + "\n";
+            }
+
+            $$.code += ". " + subTemp + "\n";
+            $$.code += "- " + subTemp + ", 0, " + newTempRegName + "\n";
+
+            $$.tempRegName = subTemp;
+            $$.index = $2.index;
+            $$.isAnArray = $2.isAnArray;
+         }
+         else if ($2.type.compare("number") == 0)
+         {
+            string numberTempName = createTempRegister();
+            $$.code = ". " + numberTempName + "\n";
+            $$.code += "= " + numberTempName + ", " + $2.code + "\n";
+
+            $$.code += ". " + subTemp + "\n";
+            $$.code += "- " + subTemp + ", 0, " + numberTempName + "\n";
+
+            $$.tempRegName = subTemp;
+            $$.isAnArray = $2.isAnArray;
+            $$.index = $2.index;
+         }
+         else //TODO
+         {
+            $$.code = $2.code + "\n";
+            $$.code += ". " + subTemp + "\n";
+            $$.code += "- " + subTemp + ", 0, " + $2.tempRegName + "\n";
+
+            $$.tempRegName = subTemp;
+            $$.isAnArray = $2.isAnArray;
+            $$.index = $2.index;
+         }
    }
    |  ident L_PAREN term_exp R_PAREN
    {
+      //error 2
+      // if (symbol_table.find($1) != symbol_table.end()) //means that it was found
+      // {
+      //    //Do nothing
+      // }
+      // else
+      // {
+      //    errorHasOccured = true;
+      //    yy::parser::error(@1, "used function call \"" + $1 + "\" was not previously declared.");
+      // }
+
       string output = "";
       string functionTempName = createTempRegister();
 
@@ -862,6 +980,21 @@ term: term_top
    }
    |  ident L_PAREN R_PAREN
    {
+      //error 2
+      if (symbol_table.find($1) != symbol_table.end()) //means that it was found
+      {
+         $$.code = $1; 
+         $$.index = ""; 
+         $$.isAnArray = false; 
+         $$.tempRegName = "";
+         $$.name = "";
+      }
+      else
+      {
+         errorHasOccured = true;
+         yy::parser::error(@1, "used function call \"" + $1 + "\" was not previously declared.");
+      }
+
       string output = "";
       string functionTempName = createTempRegister();
 
@@ -927,14 +1060,52 @@ term_top: var
 
 var:  ident 
    {
-      $$.code = $1; 
-      $$.index = ""; 
-      $$.isAnArray = false; 
-      $$.tempRegName = "";
-      $$.name = "";
+      // Error 1
+      auto itr = symbol_table.find($1);
+      type tempType = ARRAY;
+      if (itr != symbol_table.end()) //means that it was found
+      {
+         // Error 6
+         if (itr->second == tempType)
+         {
+            errorHasOccured = true;
+            yy::parser::error(@1, "used array variable \"" + $1 + "\" is missing specified index.");
+         }
+         else
+         {
+            $$.code = $1; 
+            $$.index = ""; 
+            $$.isAnArray = false; 
+            $$.tempRegName = "";
+            $$.name = "";
+         }
+      }
+      else
+      {
+         errorHasOccured = true;
+         yy::parser::error(@1, "used variable \"" + $1 + "\" was not previously declared.");
+      }
    }
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET 
       {
+         // Error 1
+         auto itr = symbol_table.find($1);
+         type tempType = INTEGER;
+         if (itr != symbol_table.end()) //means that it was found
+         {
+            // Error 7
+            if (itr->second == tempType)
+            {
+               errorHasOccured = true;
+               yy::parser::error(@1, "used integer variable \"" + $1 + "\" as an array variable.");
+            }
+         }
+         else
+         {
+            errorHasOccured = true;
+            yy::parser::error(@1, "used variable \"" + $1 + "\" was not previously declared.");
+         }
+
          string output = "";
          string index = "";
          if ($3.tempRegName.empty())
@@ -978,7 +1149,7 @@ string createLabel()
    return "_label_" + to_string(label_num++);
 }
 
-void backpatch(string &str, const string &target, const string &new_string)
+void replaceNewlines(string &str, const string &target, const string &new_string)
 {
    size_t start_pos = 0;
    while((start_pos = str.find(target, start_pos)) != string::npos)
@@ -986,6 +1157,28 @@ void backpatch(string &str, const string &target, const string &new_string)
       str.replace(start_pos, target.length(), new_string);
       start_pos += new_string.length();
    }
+}
+
+void backpatch(string &str, const string &target, const string &new_string)
+{
+   regex reg(target + ".+");
+   str = regex_replace(str, reg, new_string);
+}
+
+int checkContinueLoop(string &str)
+{
+   istringstream f(str);
+   string line;
+   int count = 0;
+
+   while(getline(f, line))
+   {  
+      if(line.find("continue") != string::npos)
+      {
+         count++;
+      }
+   }
+   return count;
 }
 
 int main(int argc, char *argv[])
@@ -1001,5 +1194,5 @@ void yy::parser::error(const yy::location& l, const std::string& m)
 
 void yyerror(const char *msg)
 {
-    cout << "-----ERROR-----" << endl;
+    cout << msg << endl;
 }

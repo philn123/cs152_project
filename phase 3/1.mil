@@ -1,215 +1,51 @@
 
-func main
-. n
-. i
-. j
+func fibonacci
 . k
-.[] t, 20
-.< i
-.< j
+= k, $0
 . _temp_0
-= _temp_0, 0
-= k, _temp_0
+= _temp_0, k
 . _temp_1
-= _temp_1, 20
-= n, _temp_1
-: _label_2
+= _temp_1, 1
 . _temp_2
-= _temp_2, k
+<= _temp_2, _temp_0, _temp_1
+?:= _label_0, _temp_2
+:= _label_1
+: _label_0
 . _temp_3
-= _temp_3, k
-[]= t, _temp_2, _temp_3
+= _temp_3, 1
+ret _temp_3
+: _label_1
 . _temp_4
 = _temp_4, k
 . _temp_5
 = _temp_5, 1
 . _temp_6
-+ _temp_6, _temp_4, _temp_5
-= k, _temp_6
+- _temp_6, _temp_4, _temp_5
+param _temp_6
 . _temp_7
-= _temp_7, k
+call fibonacci, _temp_7
 . _temp_8
-= _temp_8, 2
+= _temp_8, k
 . _temp_9
-% _temp_9, _temp_7, _temp_8
+= _temp_9, 2
 . _temp_10
-= _temp_10, 0
+- _temp_10, _temp_8, _temp_9
+param _temp_10
 . _temp_11
-== _temp_11, _temp_9, _temp_10
-?:= _label_0, _temp_11
-:= _label_1
-: _label_0
-:= _label_3
-: _label_1
+call fibonacci, _temp_11
 . _temp_12
-= _temp_12, k
++ _temp_12, _temp_7, _temp_11
+ret _temp_12
+endfunc
+func main
+. n
+. fib_n
+.< n
 . _temp_13
-= _temp_13, 1
+= _temp_13, n
+param _temp_13
 . _temp_14
-- _temp_14, _temp_12, _temp_13
-.[]> t, _temp_14
-: _label_3
-. _temp_15
-= _temp_15, k
-. _temp_16
-= _temp_16, n
-. _temp_17
-< _temp_17, _temp_15, _temp_16
-?:= _label_2, _temp_17
-. _temp_18
-= _temp_18, i
-. _temp_19
-= _temp_19, j
-. _temp_20
-< _temp_20, _temp_18, _temp_19
-. _temp_21
-= _temp_21, j
-. _temp_22
-= _temp_22, n
-. _temp_23
-< _temp_23, _temp_21, _temp_22
-. _temp_24
-&& _temp_24, _temp_20, _temp_23
-. _temp_25
-= _temp_25, i
-. _temp_26
-= _temp_26, 0
-. _temp_27
->= _temp_27, _temp_25, _temp_26
-. _temp_28
-&& _temp_28, _temp_24, _temp_27
-?:= _label_10, _temp_28
-: _label_7
-. _temp_44
-= _temp_44, i
-. _temp_45
-= _temp_45, j
-. _temp_46
->= _temp_46, _temp_44, _temp_45
-. _temp_47
-= _temp_47, 0
-. _temp_48
-|| _temp_48, _temp_46, _temp_47
-?:= _label_8, _temp_48
-:= _label_9
-: _label_8
-. _temp_49
-= _temp_49, 1
-. _temp_50
-= _temp_50, i
-. _temp_51
-+ _temp_51, _temp_49, _temp_50
-. _temp_52
-= _temp_52, j
-. _temp_53
-- _temp_53, _temp_51, _temp_52
-. _temp_54
-= _temp_54, 3
-. _temp_55
-% _temp_55, _temp_53, _temp_54
-= k, _temp_55
-. _temp_56
-= _temp_56, i
-. _temp_57
-= _temp_57, 1
-. _temp_58
-- _temp_58, _temp_56, _temp_57
-= i, _temp_58
-. _temp_59
-= _temp_59, k
-. _temp_60
-= _temp_60, 1
-. _temp_61
-> _temp_61, _temp_59, _temp_60
-?:= _label_5, _temp_61
-:= _label_6
-: _label_5
-:= _label_7
-: _label_6
-.> k
-:= _label_7
-: _label_9
-:= _label_11
-: _label_10
-. _temp_29
-= _temp_29, i
-. _temp_30
-= _temp_30, i
-. _temp_31
-= _temp_31, 2
-. _temp_32
-* _temp_32, _temp_30, _temp_31
-[]= t, _temp_29, _temp_32
-. _temp_33
-= _temp_33, j
-. _temp_34
-= _temp_34, j
-. _temp_35
-= _temp_35, 2
-. _temp_36
-* _temp_36, _temp_34, _temp_35
-[]= t, _temp_33, _temp_36
-. _temp_37
-= _temp_37, i
-. _temp_38
-=[] _temp_38, t, _temp_37
-= k, _temp_38
-. _temp_39
-= _temp_39, i
-. _temp_40
-= _temp_40, j
-. _temp_41
-=[] _temp_41, t, _temp_40
-[]= t, _temp_39, _temp_41
-. _temp_42
-= _temp_42, j
-. _temp_43
-= _temp_43, k
-[]= t, _temp_42, _temp_43
-: _label_11
-.> i
-.> j
-.> k
-. _temp_62
-= _temp_62, i
-. _temp_63
-= _temp_63, n
-. _temp_64
-< _temp_64, _temp_62, _temp_63
-. _temp_65
-= _temp_65, i
-. _temp_66
-= _temp_66, 0
-. _temp_67
->= _temp_67, _temp_65, _temp_66
-. _temp_68
-&& _temp_68, _temp_64, _temp_67
-?:= _label_12, _temp_68
-:= _label_13
-: _label_12
-. _temp_69
-= _temp_69, i
-.[]> t, _temp_69
-: _label_13
-. _temp_70
-= _temp_70, j
-. _temp_71
-= _temp_71, n
-. _temp_72
-< _temp_72, _temp_70, _temp_71
-. _temp_73
-= _temp_73, j
-. _temp_74
-= _temp_74, 0
-. _temp_75
->= _temp_75, _temp_73, _temp_74
-. _temp_76
-&& _temp_76, _temp_72, _temp_75
-?:= _label_14, _temp_76
-:= _label_15
-: _label_14
-. _temp_77
-= _temp_77, j
-.[]> t, _temp_77
-: _label_15
+call fibonacci, _temp_14
+= fib_n, _temp_14
+.> fib_n
 endfunc
