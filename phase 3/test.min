@@ -6,9 +6,6 @@ beginlocals
   a : array[2] of integer;
 endlocals
 beginbody
-  n := 5;
-  for a[0] := 0; a[0] < n; a[0] := a[0] + 1
-  beginloop
-    write a[0];
-  endloop;
+  n := -5;
+    write n;
 endbody

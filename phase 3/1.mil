@@ -3,40 +3,10 @@ func main
 . i
 . n
 .[] a, 2
-. _temp_0
-= _temp_0, 5
-= n, _temp_0
 . _temp_1
-= _temp_1, 0
-. _temp_12
-= _temp_12, 0
-[]= a, _temp_1, _temp_12
-: _label_0
-. _temp_2
-= _temp_2, 0
-. _temp_3
-=[] _temp_3, a, _temp_2
-. _temp_4
-= _temp_4, n
-. _temp_5
-< _temp_5, _temp_3, _temp_4
-?:= _label_1, _temp_5
-:= _label_2
-: _label_1
-. _temp_11
-= _temp_11, 0
-.[]> a, _temp_11
-[]= a, _temp_1, _temp_12
-. _temp_7
-= _temp_7, 0
-. _temp_8
-=[] _temp_8, a, _temp_7
-. _temp_9
-= _temp_9, 1
-. _temp_10
-+ _temp_10, _temp_8, _temp_9
-= _temp_12, _temp_10
-[]= a, _temp_1, _temp_12
-:= _label_0
-: _label_2
+= _temp_1, 5
+. _temp_0
+- _temp_0, 0, _temp_1
+= n, _temp_0
+.> n
 endfunc
