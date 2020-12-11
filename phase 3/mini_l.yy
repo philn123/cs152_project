@@ -23,6 +23,7 @@
     #include <functional>
     #include <sstream>
     #include <regex>
+    #include <algorithm>
     using namespace std;
       /* define the sturctures using as types for non-terminals */
       struct dec_type{
@@ -53,23 +54,32 @@
       {
          INTEGER,
          ARRAY,
-         FUNCTION
+         FUNCTION,
+         CALL
       };
+
       /* end the structures for non-terminal types */
       string createTempRegister();
       string createLabel();
       void backpatch(string &, const string &, const string &);
       void replaceNewlines(string &, const string &, const string &);
       int checkContinueLoop(string &);
+      int inSymbolTable(string &);
+      bool hasMain();
+      bool errorTwo();
+      void extractFunctionCalls();
 }
 
 %code
 {
 #include "y.tab.hh"
+
 struct tests
 {
-	string name;
-	yy::location loc;
+   string name;
+   yy::location loc;
+   pair <int, int> dimension;
+   type type_var;
 };
 
 	/* you may need these header files 
@@ -80,12 +90,15 @@ struct tests
 #include <regex>
 #include <set>
 yy::parser::symbol_type yylex();
-void yyerror(const char *msg);		/*declaration given by TA*/
+void yyerror(const char *msg);
+void yyerror(string s);			/*declaration given by TA*/
 
 	/* define your symbol table, global variables,
 	 * list of keywords or any function you may need here */
-	map<string, type> symbol_table;
+   vector<tests> sym_table;
    bool errorHasOccured = false;
+   vector <tests> functionCallsOnly;
+   vector<string> functionNames;
 	/* end of your code */
 
 }
@@ -127,9 +140,19 @@ prog_start: functions
    {
       string generated_code = $1;
 
+      // Error 2
+      if(errorTwo())
+      {
+         errorHasOccured = true;
+         for(auto item : functionCallsOnly)
+         {
+            string msg = "function call: \"" + item.name + "\" has not been defined.";
+            yy::parser::error(item.loc, msg);
+         }
+      }
+
       // Error 3
-      type main_function = FUNCTION;
-      if (symbol_table.find("main")->second != main_function)
+      if (!hasMain())
       {
          errorHasOccured = true;
          yy::parser::error(@1, "No main function defined");
@@ -140,13 +163,6 @@ prog_start: functions
          replaceNewlines(generated_code, "\n\n", "\n");
          cout << generated_code << endl;
       }
-      // else
-      // {
-      //    for(auto it = symbol_table.cbegin(); it != symbol_table.cend(); ++it)
-      //    {
-      //       cout << it->first << " " << it->second << endl;
-      //    }
-      // }
    }
 	  ;
 
@@ -162,9 +178,11 @@ function:   FUNCTION ident SEMICOLON
             BEGINLOCALS dec_loop ENDLOCALS
             BEGINBODY statement_loop ENDBODY
             {
-               if (symbol_table.find($2) == symbol_table.end())
+               int index = inSymbolTable($2);
+               if (index == -1 || sym_table.at(index).type_var != FUNCTION)
                {
-                  symbol_table.insert({$2, FUNCTION});
+                  sym_table.push_back({$2, @2, make_pair(-1,-1), FUNCTION});
+                  functionNames.push_back($2);
                }
                else //found it 
                {
@@ -199,9 +217,11 @@ function:   FUNCTION ident SEMICOLON
                   int pos = 8; // length of word continue
                   
                   string msg = "Error line " + tempString.substr(pos) + " : continue not within loop.";
-                  const char *c = msg.c_str();
-                  yyerror(c);
+                  yyerror(msg);
                }
+
+               extractFunctionCalls();
+               sym_table.clear();
             }
             ;
          
@@ -233,11 +253,11 @@ declaration:   id_loop COLON INTEGER
                {
                   for(list<string>::iterator it = $1.begin(); it != $1.end(); ++it)
                   {
-                     if (symbol_table.find(*it) == symbol_table.end())
+                     if (inSymbolTable(*it) == -1)
                      {
                         $$.code += ". " + *it + "\n";
                         $$.ids.push_back(*it);
-                        symbol_table.insert({*it, INTEGER});
+                        sym_table.push_back({*it, @2, make_pair(-1,-1), INTEGER});
                      }
                      else //found it 
                      {
@@ -257,11 +277,11 @@ declaration:   id_loop COLON INTEGER
 
                   for(list<string>::iterator it = $1.begin(); it != $1.end(); ++it)
                   {
-                     if (symbol_table.find(*it) == symbol_table.end())
+                     if (inSymbolTable(*it) == -1)
                      {
                         $$.code += ".[] " + *it + ", " + to_string($5);
                         $$.ids.push_back(*it);
-                        symbol_table.insert({*it, ARRAY});
+                        sym_table.push_back({*it, @2, make_pair($5,1), ARRAY});
                      }
                      else
                      {
@@ -408,8 +428,23 @@ D: DO BEGINLOOP statement_loop ENDLOOP WHILE bool_expr
 
 E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP 
    {
-      string iterator_variable = $2.code;
+      string iterator_variable = "";
       string output = "";
+
+      if(!$2.isAnArray)
+      {
+         iterator_variable = $2.code;
+      }
+      else
+      {
+         if(!$2.tempRegName.empty())
+         {
+            iterator_variable = createTempRegister();
+            output += $2.code;
+            output += ". " + iterator_variable + "\n";
+            output += "=[] " + iterator_variable + ", " + $2.name + ", " + $2.index + "\n"; 
+         }
+      }
 
       string boolLabel = createLabel();
       string loopBodyLabel = createLabel();
@@ -419,7 +454,6 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
       string replacement = ":= " + boolLabel; //go to the start of loop again
       backpatch($12, "continue", replacement);
 
-      //output += ". " + iterator_variable + "\n";
       output += "= " + iterator_variable + ", " + to_string($4) + "\n";
 
       output += ": " + boolLabel + "\n";
@@ -951,16 +985,7 @@ term: term_top
    }
    |  ident L_PAREN term_exp R_PAREN
    {
-      //error 2
-      // if (symbol_table.find($1) != symbol_table.end()) //means that it was found
-      // {
-      //    //Do nothing
-      // }
-      // else
-      // {
-      //    errorHasOccured = true;
-      //    yy::parser::error(@1, "used function call \"" + $1 + "\" was not previously declared.");
-      // }
+      sym_table.push_back({$1, @1, make_pair(-1,-1), CALL});
 
       string output = "";
       string functionTempName = createTempRegister();
@@ -980,20 +1005,7 @@ term: term_top
    }
    |  ident L_PAREN R_PAREN
    {
-      //error 2
-      if (symbol_table.find($1) != symbol_table.end()) //means that it was found
-      {
-         $$.code = $1; 
-         $$.index = ""; 
-         $$.isAnArray = false; 
-         $$.tempRegName = "";
-         $$.name = "";
-      }
-      else
-      {
-         errorHasOccured = true;
-         yy::parser::error(@1, "used function call \"" + $1 + "\" was not previously declared.");
-      }
+      sym_table.push_back({$1, @1, make_pair(-1,-1), CALL});
 
       string output = "";
       string functionTempName = createTempRegister();
@@ -1003,7 +1015,6 @@ term: term_top
 
       $$.code = output;
       $$.tempRegName = functionTempName;
-
    }
    ;
 
@@ -1061,12 +1072,12 @@ term_top: var
 var:  ident 
    {
       // Error 1
-      auto itr = symbol_table.find($1);
       type tempType = ARRAY;
-      if (itr != symbol_table.end()) //means that it was found
+      int temp = inSymbolTable($1);
+      if (temp >= 0) //means that it was found
       {
          // Error 6
-         if (itr->second == tempType)
+         if (sym_table.at(temp).type_var == tempType)
          {
             errorHasOccured = true;
             yy::parser::error(@1, "used array variable \"" + $1 + "\" is missing specified index.");
@@ -1089,12 +1100,12 @@ var:  ident
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET 
       {
          // Error 1
-         auto itr = symbol_table.find($1);
+         int temp = inSymbolTable($1);
          type tempType = INTEGER;
-         if (itr != symbol_table.end()) //means that it was found
+         if (temp >= 0) //means that it was found
          {
             // Error 7
-            if (itr->second == tempType)
+            if (sym_table.at(temp).type_var == tempType)
             {
                errorHasOccured = true;
                yy::parser::error(@1, "used integer variable \"" + $1 + "\" as an array variable.");
@@ -1181,6 +1192,52 @@ int checkContinueLoop(string &str)
    return count;
 }
 
+int inSymbolTable(string &s)
+{
+   for(int i = 0; i < sym_table.size(); ++i)
+   {
+      if (sym_table.at(i).name.compare(s) == 0)
+      {
+         return i;
+      }
+   }
+   return -1;
+}
+
+bool hasMain()
+{
+   for(auto name : functionNames)
+   {
+      if(name.compare("main") == 0)
+      {
+         return true;
+      }
+   }
+   return false;
+}
+
+void extractFunctionCalls()
+{
+   for(auto item : sym_table)
+   {
+      if(item.type_var == CALL)
+      {
+         functionCallsOnly.push_back(item);
+      }
+   }
+}
+
+bool errorTwo()
+{
+   for(int i = 0; i < functionNames.size(); ++i)
+   {
+      functionCallsOnly.erase(remove_if(functionCallsOnly.begin(), functionCallsOnly.end(),
+      [&](tests const& name){return (name.name.compare(functionNames.at(i)) == 0);}), functionCallsOnly.end());
+   }
+
+   return (!functionCallsOnly.empty());
+}
+
 int main(int argc, char *argv[])
 {
 	yy::parser p;
@@ -1192,6 +1249,10 @@ void yy::parser::error(const yy::location& l, const std::string& m)
 	std::cerr << "Error line " << l << ": " << m << std::endl;
 }
 
+void yyerror(string s)
+{
+   std::cerr << s << std::endl;  //use this just to write to terminal
+}
 void yyerror(const char *msg)
 {
     cout << msg << endl;
