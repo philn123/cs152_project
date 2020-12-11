@@ -292,7 +292,30 @@ declaration:   id_loop COLON INTEGER
                }
             
             |  id_loop COLON ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER
-              {printf("id_loop -> id_loop COLON ARRAY L_SQUARE_BRACKET NUMBER %d R_SQUARE_BRACKET L_SQUARE_BRACKET NUMBER %d R_SQUARE_BRACKET OF INTEGER\n", $5, $8);}
+               {
+                  // 2d array TODO
+                  // Error 8
+                  if ($5 <= 0 || $8 <= 0)
+                  {
+                     errorHasOccured = true;
+                     yy::parser::error(@1, "array size is less than 1");
+                  }
+
+                  for(list<string>::iterator it = $1.begin(); it != $1.end(); ++it)
+                  {
+                     if (inSymbolTable(*it) == -1)
+                     {
+                        $$.code += ".[] " + *it + ", " + to_string($5 * $8);
+                        $$.ids.push_back(*it);
+                        sym_table.push_back({*it, @1, make_pair($5,$8), ARRAY});
+                     }
+                     else
+                     {
+                        errorHasOccured = true;
+                        yy::parser::error(@2, "symbol \"" + *it + "\" is multiply-defined.");
+                     }
+                  }
+               }
                
             |  id_loop error INTEGER {yyerrok; yyerror("Syntax error, invalid declaration, missing colon.");}
             |  id_loop error ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER {yyerrok; yyerror("Syntax error, invalid declaration, missing colon.");}
@@ -428,22 +451,17 @@ D: DO BEGINLOOP statement_loop ENDLOOP WHILE bool_expr
 
 E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP 
    {
-      string iterator_variable = "";
+      string iterator_variable = createTempRegister();
       string output = "";
-
-      if(!$2.isAnArray)
+      string variable = "";
+      if ($2.isAnArray)
       {
-         iterator_variable = $2.code;
+         output += $2.code;
+         variable = "";
       }
-      else
+      else 
       {
-         if(!$2.tempRegName.empty())
-         {
-            iterator_variable = createTempRegister();
-            output += $2.code;
-            output += ". " + iterator_variable + "\n";
-            output += "=[] " + iterator_variable + ", " + $2.name + ", " + $2.index + "\n"; 
-         }
+         variable = $2.code;
       }
 
       string boolLabel = createLabel();
@@ -454,7 +472,16 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
       string replacement = ":= " + boolLabel; //go to the start of loop again
       backpatch($12, "continue", replacement);
 
+      output += ". " + iterator_variable + "\n";
       output += "= " + iterator_variable + ", " + to_string($4) + "\n";
+      if ($2.isAnArray)
+      {
+         output += "[]= " + $2.name + ", " + $2.index + ", " + iterator_variable + '\n';
+      }
+      else 
+      {
+         output += "= " + variable + ", " + iterator_variable + "\n";  //set
+      }
 
       output += ": " + boolLabel + "\n";
       output += $6.code + "\n";
@@ -462,17 +489,25 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
       output += ":= " + exitLabel + "\n"; //false
       output += ": " + loopBodyLabel + "\n";
       output += $12 + "\n";
+      if ($2.isAnArray)
+      {
+         output += "[]= " + $2.name + ", " + $2.index + ", " + iterator_variable + '\n';
+      }
+      else 
+      {
+         output += "= " + variable + ", " + iterator_variable + "\n";  //set
+      }
 
-      if ($10.tempRegName.empty())
+      output += $10.code + "\n"; // modifiy the temp iterator variable
+      output += "= " + iterator_variable + ", " + $10.tempRegName + "\n";
+      if ($2.isAnArray)
       {
-         output += "= " + iterator_variable + ", " + $10.code + "\n";
+         output += "[]= " + $2.name + ", " + $2.index + ", " + iterator_variable + '\n';
       }
-      else
+      else 
       {
-         output += $10.code + "\n"; // modifiy the temp iterator variable
-         output += "= " + iterator_variable + ", " + $10.tempRegName + "\n";
+         output += "= " + variable + ", " + iterator_variable + "\n";  //set
       }
-      
       output += ":= " + boolLabel + "\n"; //check bool condition to see if we keep going
       output += ": " + exitLabel + "\n";
 
@@ -743,7 +778,7 @@ expression: multiplicative_expr
                output += ". " + tempName + "\n";
                output += "+ " + tempName + ", " + secondOperator + ", " + $3.code + "\n";
             }
-            else // TODO: NOT WORKING I THINK
+            else // 
             {
                output += $3.code;
                output += ". " + tempName + "\n";
@@ -776,7 +811,7 @@ expression: multiplicative_expr
                output += ". " + tempName + "\n";
                output += "- " + tempName + ", " + secondOperator + ", " + $3.code + "\n";
             }
-            else // TODO: NOT WORKING I THINK
+            else // 
             {
                output += $3.code;
                output += ". " + tempName + "\n";
@@ -812,7 +847,7 @@ multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $
                         output += ". " + multTempName + "\n";
                         output += "* " + multTempName + ", " + secondOperator + ", " + $3.code + "\n";
                      }
-                     else // TODO: NOT WORKING I THINK
+                     else // 
                      {
                         output += $3.code;
                         output += ". " + multTempName + "\n";
@@ -846,7 +881,7 @@ multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $
                         output += ". " + divTempName + "\n";
                         output += "/ " + divTempName + ", " + secondOperator + ", " + $3.code + "\n";
                      }
-                     else // TODO: NOT WORKING I THINK
+                     else // 
                      {
                         output += $3.code;
                         output += ". " + divTempName + "\n";
@@ -880,7 +915,7 @@ multiplicative_expr: term {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $
                         output += ". " + modTempName + "\n";
                         output += "% " + modTempName + ", " + secondOperator + ", " + $3.code + "\n";
                      }
-                     else // TODO: NOT WORKING I THINK
+                     else // 
                      {
                         output += $3.code;
                         output += ". " + modTempName + "\n";
@@ -1139,8 +1174,77 @@ var:  ident
       }
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET
       {
+          // Error 1
+         int temp = inSymbolTable($1);
+         type tempType = INTEGER;
+         if (temp >= 0) //means that it was found
+         {
+            // Error 7
+            if (sym_table.at(temp).type_var == tempType)
+            {
+               errorHasOccured = true;
+               yy::parser::error(@1, "used integer variable \"" + $1 + "\" as an array variable.");
+            }
+         }
+         else
+         {
+            errorHasOccured = true;
+            yy::parser::error(@1, "used variable \"" + $1 + "\" was not previously declared.");
+         }
+
          // TODO 2-D ARRAY
-         printf("var -> ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET\n");
+         string output = "";
+         string index1;
+         string index2;
+
+         string mult = createTempRegister();
+         string addi = createTempRegister();
+         string indexRowMajor = createTempRegister();
+
+         int row;
+         int col;
+
+         for(auto item : sym_table)
+         {
+            if(item.name.compare($1) == 0
+            && item.type_var == ARRAY)
+            {
+               row = item.dimension.first;
+               col = item.dimension.second;
+            }
+         }
+
+         if ($3.tempRegName.empty())
+         {
+            index1 = $3.code;
+         }
+         else
+         {
+            output += $3.code + "\n";
+            index1 = $3.tempRegName;
+         }
+
+         if ($6.tempRegName.empty())
+         {
+            index1 = $6.code;
+         }
+         else
+         {
+            output += $6.code + "\n";
+            index2 = $6.tempRegName;
+         }
+
+         output += ". " + mult + "\n";
+         output += "* " + mult + ", " + index2 + ", " + to_string(col) + "\n";
+         output += ". " + addi + "\n";
+         output += "+ " + addi + ", " + mult + ", " + to_string(row) + "\n";
+         output += ". " + indexRowMajor + "\n";
+         output += "= " + indexRowMajor + ", " + addi + "\n";
+         $$.code = output;
+         $$.name = $1;
+         $$.index = indexRowMajor;
+         $$.tempRegName = indexRowMajor;
+         $$.isAnArray = true;
       }
    ;
 
