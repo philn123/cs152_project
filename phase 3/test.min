@@ -3,11 +3,14 @@ beginparams
 endparams
 beginlocals
     i,n : integer;
-  a : array[2][2] of integer;
+    a : array[2] of integer;
 endlocals
 beginbody
     n := 5;
-    i := 1;
-    a[0][1] := n;
-    write a[1];
+    i := 5;
+    for a[0] := 0; a[0] < n; a[0] := i + 1
+    beginloop
+      write a[0];
+    endloop;
+    write a[0];
 endbody

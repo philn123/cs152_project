@@ -455,6 +455,7 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
       string iterator_variable = createTempRegister();
       string output = "";
       string variable = "";
+      string variable2 = "";
       if ($2.isAnArray)
       {
          output += $2.code;
@@ -465,6 +466,16 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
          variable = $2.code;
       }
 
+      if ($8.isAnArray)
+      {
+         output += $8.code;
+         variable2 = "";
+      }
+      else
+      {
+         variable2 = $8.code;
+      }
+
       string boolLabel = createLabel();
       string loopBodyLabel = createLabel();
       string exitLabel = createLabel();
@@ -473,15 +484,13 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
       string replacement = ":= " + boolLabel; //go to the start of loop again
       backpatch($12, "continue", replacement);
 
-      output += ". " + iterator_variable + "\n";
-      output += "= " + iterator_variable + ", " + to_string($4) + "\n";
       if ($2.isAnArray)
       {
-         output += "[]= " + $2.name + ", " + $2.index + ", " + iterator_variable + '\n';
+         output += "[]= " + $2.name + ", " + $2.index + ", " + to_string($4) + '\n';
       }
       else 
       {
-         output += "= " + variable + ", " + iterator_variable + "\n";  //set
+         output += "= " + variable + ", " + to_string($4) + "\n";  //set
       }
 
       output += ": " + boolLabel + "\n";
@@ -490,24 +499,16 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
       output += ":= " + exitLabel + "\n"; //false
       output += ": " + loopBodyLabel + "\n";
       output += $12 + "\n";
-      if ($2.isAnArray)
-      {
-         output += "[]= " + $2.name + ", " + $2.index + ", " + iterator_variable + '\n';
-      }
-      else 
-      {
-         output += "= " + variable + ", " + iterator_variable + "\n";  //set
-      }
-
       output += $10.code + "\n"; // modifiy the temp iterator variable
+      output += ". " + iterator_variable + "\n";
       output += "= " + iterator_variable + ", " + $10.tempRegName + "\n";
-      if ($2.isAnArray)
+      if ($8.isAnArray)
       {
-         output += "[]= " + $2.name + ", " + $2.index + ", " + iterator_variable + '\n';
+         output += "[]= " + $8.name + ", " + $8.index + ", " + iterator_variable + '\n';
       }
       else 
       {
-         output += "= " + variable + ", " + iterator_variable + "\n";  //set
+         output += "= " + variable2 + ", " + iterator_variable + "\n";  //set
       }
       output += ":= " + boolLabel + "\n"; //check bool condition to see if we keep going
       output += ": " + exitLabel + "\n";
