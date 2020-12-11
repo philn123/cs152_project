@@ -1,23 +1,144 @@
 
 func main
-. a
-. b
-. c
-= a, 0
-= b, 1
-= c, 10
+. n
+.[] a, 1000
+. i
+. j
+. x
+. sqrt_n
+.< n
 . _temp_0
-= _temp_0, b
-. _temp_1
-= _temp_1, a
-. _temp_2
-== _temp_2, _temp_0, _temp_1
-. _temp_3
-! _temp_3, _temp_2
-?:= _label_0, _temp_3
-.> a
-:= _label_1
+= _temp_0, n
+= x, _temp_0
 : _label_0
-.> c
+. _temp_1
+= _temp_1, x
+. _temp_2
+= _temp_2, n
+. _temp_3
+= _temp_3, x
+. _temp_4
+/ _temp_4, _temp_2, _temp_3
+. _temp_5
+> _temp_5, _temp_1, _temp_4
+?:= _label_1, _temp_5
+:= _label_2
 : _label_1
+. _temp_6
+= _temp_6, x
+. _temp_7
+= _temp_7, n
+. _temp_8
+= _temp_8, x
+. _temp_9
+/ _temp_9, _temp_7, _temp_8
+. _temp_10
++ _temp_10, _temp_6, _temp_9
+. _temp_11
+/ _temp_11, _temp_10, 2
+= x, _temp_11
+:= _label_0
+: _label_2
+. _temp_12
+= _temp_12, x
+= sqrt_n, _temp_12
+= i, 2
+: _label_3
+. _temp_13
+= _temp_13, i
+. _temp_14
+= _temp_14, n
+. _temp_15
+<= _temp_15, _temp_13, _temp_14
+?:= _label_4, _temp_15
+:= _label_5
+: _label_4
+[]= a, i, 0
+. _temp_17
+= _temp_17, i
+. _temp_18
++ _temp_18, _temp_17, 1
+= i, _temp_18
+:= _label_3
+: _label_5
+= i, 2
+: _label_11
+. _temp_19
+= _temp_19, i
+. _temp_20
+= _temp_20, sqrt_n
+. _temp_21
+<= _temp_21, _temp_19, _temp_20
+?:= _label_12, _temp_21
+:= _label_13
+: _label_12
+. _temp_23
+=[] _temp_23, a, i
+. _temp_24
+== _temp_24, _temp_23, 0
+?:= _label_9, _temp_24
+:= _label_10
+: _label_9
+. _temp_25
+= _temp_25, i
+. _temp_26
+= _temp_26, i
+. _temp_27
++ _temp_27, _temp_25, _temp_26
+= j, _temp_27
+: _label_6
+. _temp_28
+= _temp_28, j
+. _temp_29
+= _temp_29, n
+. _temp_30
+<= _temp_30, _temp_28, _temp_29
+?:= _label_7, _temp_30
+:= _label_8
+: _label_7
+[]= a, j, 1
+. _temp_32
+= _temp_32, j
+. _temp_33
+= _temp_33, i
+. _temp_34
++ _temp_34, _temp_32, _temp_33
+= j, _temp_34
+:= _label_6
+: _label_8
+: _label_10
+. _temp_35
+= _temp_35, i
+. _temp_36
++ _temp_36, _temp_35, 1
+= i, _temp_36
+:= _label_11
+: _label_13
+= i, 2
+: _label_16
+. _temp_37
+= _temp_37, i
+. _temp_38
+= _temp_38, n
+. _temp_39
+<= _temp_39, _temp_37, _temp_38
+?:= _label_17, _temp_39
+:= _label_18
+: _label_17
+. _temp_41
+=[] _temp_41, a, i
+. _temp_42
+== _temp_42, _temp_41, 0
+?:= _label_14, _temp_42
+:= _label_15
+: _label_14
+.> i
+: _label_15
+. _temp_43
+= _temp_43, i
+. _temp_44
++ _temp_44, _temp_43, 1
+= i, _temp_44
+:= _label_16
+: _label_18
 endfunc

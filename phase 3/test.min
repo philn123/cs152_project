@@ -1,16 +1,20 @@
 function main;
 beginparams
 endparams
+
 beginlocals
-	a,b,c : integer;
+
+  n : integer;
+  i, j, k: integer;
+  t : array [20] of integer;
+
 endlocals
-beginbody
-	a := 0;
-	b := 1;
-	c := 10;
-	if not(b == a) then
-		write c;
-	else
-		write a;
-	endif;
+
+beginbody	## main program
+
+  i := 0;
+  j := 5;
+  if i < j then
+    write j;
+  endif;
 endbody

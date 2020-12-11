@@ -35,6 +35,7 @@
          string tempRegName;
          string index;
          bool isAnArray;
+         string name;
       };
 
       struct term_type
@@ -44,6 +45,14 @@
          string index;
          bool isAnArray;
          string type;
+         string name;
+      };
+
+      enum type
+      {
+         INTEGER,
+         ARRAY,
+         FUNCTION
       };
       /* end the structures for non-terminal types */
       string createTempRegister();
@@ -72,8 +81,10 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 
 	/* define your symbol table, global variables,
 	 * list of keywords or any function you may need here */
-	
+	map<string, type> symbol_table;
+   bool errorHasOccured = false;
 	/* end of your code */
+
 }
 
 %token END 0 "end of file";
@@ -103,7 +114,7 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 %type <list<string>> id_loop
 
  /* Data type may change */
-%type <string> statement A B C D F G H I
+%type <string> statement A B C D E F G H I
 %type <node> var expression multiplicative_expr term bool_expr relation_and_expr relation_expr relations
 %type <vector<node*>> var_loop term_exp
 %type <term_type> term_top
@@ -112,8 +123,20 @@ void yyerror(const char *msg);		/*declaration given by TA*/
 prog_start: functions 
    {
       string generated_code = $1;
-      backpatch(generated_code, "\n\n", "\n");
-      cout << generated_code << endl;
+
+      if (!errorHasOccured)
+      {
+         backpatch(generated_code, "\n\n", "\n");
+         cout << generated_code << endl;
+      }
+      else
+      {
+         for (auto it = symbol_table.cbegin(); it != symbol_table.cend(); ++it)
+         {
+            cout << it->first << " " << it->second << endl;
+         }
+      }
+      
    }
 	  ;
 
@@ -167,10 +190,19 @@ declaration:   id_loop COLON INTEGER
                {
                   for(list<string>::iterator it = $1.begin(); it != $1.end(); ++it)
                   {
-                     $$.code += ". " + *it + "\n";
-                     $$.ids.push_back(*it);
+                     if (symbol_table.find(*it) == symbol_table.end())
+                     {
+                        $$.code += ". " + *it + "\n";
+                        $$.ids.push_back(*it);
+                        symbol_table.insert({*it, INTEGER});
+                     }
+                     else
+                     {
+                        errorHasOccured = true;
+                        yy::parser::error(@2, "symbol \"" + *it + "\" is multiply-defined.");
+                     }
+                     
                   }
-                  $$.code.pop_back(); //removes newline
                }
             |  id_loop COLON ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER
                {
@@ -199,7 +231,7 @@ statement: A {$$ = $1;}
          | B {$$ = $1;}
          | C {$$ = $1;}
          | D {$$ = $1;}
-         | E {printf("statement -> E\n");}
+         | E {$$ = $1;}
          | F {$$ = $1;}
          | G {$$ = $1;}
          | H {$$ = $1;}
@@ -212,22 +244,23 @@ A: var ASSIGN expression
       {
          if (!$3.tempRegName.empty())
          {
-            $$ = $3.code;
-            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.tempRegName;
+            $$ = $1.code;
+            $$ += $3.code;
+            $$ += "[]= " + $1.name + ", " + $1.index + ", " + $3.tempRegName + "\n";
          }
          else
          {
-            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.code;
+            $$ += "[]= " + $1.code + ", " + $1.index + ", " + $3.code + "\n";
          }
       }
       else if ($3.tempRegName.empty())
       {
-         $$ = "= " + $1.code + ", " + $3.code;
+         $$ = "= " + $1.code + ", " + $3.code + "\n";
       }
       else
       {
          $$ = $3.code;
-         $$ += "= " + $1.code + ", " + $3.tempRegName;
+         $$ += "= " + $1.code + ", " + $3.tempRegName + "\n";
       }
    }
    | var error expression {yyerrok; yyerror("Syntax error, \":=\" expected.");}
@@ -297,17 +330,17 @@ C: WHILE bool_expr BEGINLOOP statement_loop ENDLOOP
 D: DO BEGINLOOP statement_loop ENDLOOP WHILE bool_expr
    {
       string labelStart = createLabel();
-      string label1 = createLabel();
+      string boolLabel = createLabel();
       string label2 = createLabel();
       string output = "";
 
       // need to backpatch for continue
-      string replacement = ":= " + labelStart; //go to the start of loop again
+      string replacement = ":= " + boolLabel; //go to the start of loop again
       backpatch($3, "continue", replacement);
 
       output += ": " + labelStart + "\n";
       output += $3 + "\n";
-      output += ": " + label1 + "\n";
+      output += ": " + boolLabel + "\n";
       output += $6.code + "\n";
       output += "?:= " + labelStart + ", " + $6.tempRegName + "\n";
 
@@ -317,7 +350,41 @@ D: DO BEGINLOOP statement_loop ENDLOOP WHILE bool_expr
 
 E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP 
    {
-      printf("E -> FOR var ASSIGN NUMBER %d SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP\n", $4);
+      string iterator_variable = $2.code;
+      string output = "";
+
+      string boolLabel = createLabel();
+      string loopBodyLabel = createLabel();
+      string exitLabel = createLabel();
+
+      // need to backpatch for continue
+      string replacement = ":= " + boolLabel; //go to the start of loop again
+      backpatch($12, "continue", replacement);
+
+      //output += ". " + iterator_variable + "\n";
+      output += "= " + iterator_variable + ", " + to_string($4) + "\n";
+
+      output += ": " + boolLabel + "\n";
+      output += $6.code + "\n";
+      output += "?:= " + loopBodyLabel + ", " + $6.tempRegName + "\n"; //if bool true, go to this label
+      output += ":= " + exitLabel + "\n"; //false
+      output += ": " + loopBodyLabel + "\n";
+      output += $12 + "\n";
+
+      if ($10.tempRegName.empty())
+      {
+         output += "= " + iterator_variable + ", " + $10.code + "\n";
+      }
+      else
+      {
+         output += $10.code + "\n"; // modifiy the temp iterator variable
+         output += "= " + iterator_variable + ", " + $10.tempRegName + "\n";
+      }
+      
+      output += ":= " + boolLabel + "\n"; //check bool condition to see if we keep going
+      output += ": " + exitLabel + "\n";
+
+      $$ = output;
    }
    | FOR var ASSIGN NUMBER error bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP 
    {
@@ -335,7 +402,16 @@ F: READ var_loop
       {
          if ($2[i]->isAnArray)
          {
-            $$ += ".[]< " + $2[i]->code + ", " + $2[i]->index + "\n";
+            if ($2[i]->name.empty())
+            {
+               $$ += ".[]< " + $2[i]->code + ", " + $2[i]->index + "\n";
+            }
+            else
+            {
+               $$ = $2[i]->code;
+               $$ += ".[]< " + $2[i]->name + ", " + $2[i]->tempRegName + "\n";
+            }
+            
          }
          else
          {
@@ -352,7 +428,16 @@ G: WRITE var_loop
       {
          if ($2[i]->isAnArray)
          {
-            $$ += ".[]> " + $2[i]->code + ", " + $2[i]->index + "\n";
+            if ($2[i]->name.empty())
+            {
+               $$ += ".[]> " + $2[i]->code + ", " + $2[i]->index + "\n";
+            }
+            else
+            {
+               $$ = $2[i]->code;
+               $$ += ".[]> " + $2[i]->name + ", " + $2[i]->tempRegName + "\n";
+            }
+            
          }
          else
          {
@@ -370,6 +455,7 @@ var_loop:  var
             temp->tempRegName = $1.tempRegName; 
             temp->isAnArray = $1.isAnArray; 
             temp->index = $1.index;
+            temp->name = $1.name;
 
             $$.push_back(temp);
          }
@@ -380,6 +466,7 @@ var_loop:  var
             temp->tempRegName = $1.tempRegName; 
             temp->isAnArray = $1.isAnArray; 
             temp->index = $1.index;
+            temp->name = $1.name;
 
             $$.push_back(temp);
             $$.insert($$.end(), $3.begin(), $3.end());
@@ -446,7 +533,6 @@ relation_and_expr: relation_expr
                      $$.code += "&& " + andTempName + ", " + $1.tempRegName + ", " + $3.tempRegName;
                   
                      $$.tempRegName = andTempName;
-
                   }
    ;
 
@@ -539,7 +625,8 @@ comp: EQ {$$ = "==";}
    |  GTE {$$ = ">=";}
    ;
 
-expression: multiplicative_expr {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
+expression: multiplicative_expr 
+         {$$.code = $1.code; $$.tempRegName = $1.tempRegName; $$.isAnArray = $1.isAnArray; $$.index = $1.index;}
          | expression ADD multiplicative_expr
          {
             string tempName = createTempRegister();
@@ -720,8 +807,9 @@ term: term_top
 
             if ($1.isAnArray)
             {
-               $$.code = ". " + newTempRegName + "\n";
-               $$.code += "=[] " + newTempRegName + ", " + $1.code + ", " + $1.index + "\n";
+               $$.code = $1.code;
+               $$.code += ". " + newTempRegName + "\n";
+               $$.code += "=[] " + newTempRegName + ", " + $1.name + ", " + $1.index + "\n";
             }
             else
             {
@@ -735,8 +823,10 @@ term: term_top
          }
          else if ($1.type.compare("number") == 0)
          {
-            $$.code = $1.code;
-            $$.tempRegName = $1.tempRegName;
+            string numberTempName = createTempRegister();
+            $$.code = ". " + numberTempName + "\n";
+            $$.code += "= " + numberTempName + ", " + $1.code + "\n";
+            $$.tempRegName = numberTempName;
             $$.isAnArray = $1.isAnArray;
             $$.index = $1.index;
          }
@@ -815,13 +905,14 @@ term_top: var
             $$.isAnArray = $1.isAnArray; 
             $$.index = $1.index;
             $$.type = "variable";
+            $$.name = $1.name;
          }
       |  NUMBER 
       {
          $$.code = to_string($1); 
          $$.tempRegName = ""; 
          $$.isAnArray = false; 
-         $$.index = to_string($1);
+         $$.index = "";
          $$.type = "number";
       }
       |  L_PAREN expression R_PAREN 
@@ -834,13 +925,35 @@ term_top: var
       }
       ;
 
-var:  ident {$$.code = $1; $$.index = $1; $$.isAnArray = false; $$.tempRegName = "";}
+var:  ident 
+   {
+      $$.code = $1; 
+      $$.index = ""; 
+      $$.isAnArray = false; 
+      $$.tempRegName = "";
+      $$.name = "";
+   }
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET 
       {
-         $$.code = $1;
-         $$.index = $3.index;
+         string output = "";
+         string index = "";
+         if ($3.tempRegName.empty())
+         {
+            output += $1;
+            index = $3.code;
+            $$.name = "";
+            $$.tempRegName = "";
+         }
+         else
+         {
+            output += $3.code + "\n";
+            index = $3.tempRegName;
+            $$.name = $1;
+            $$.tempRegName = index;
+         }
+         $$.code = output;
+         $$.index = index;
          $$.isAnArray = true;
-         $$.tempRegName = $3.tempRegName;
       }
    |  ident L_SQUARE_BRACKET expression R_SQUARE_BRACKET L_SQUARE_BRACKET expression R_SQUARE_BRACKET
       {
@@ -883,7 +996,7 @@ int main(int argc, char *argv[])
 
 void yy::parser::error(const yy::location& l, const std::string& m)
 {
-	std::cerr << l << ": " << m << std::endl;
+	std::cerr << "Error line " << l << ": " << m << std::endl;
 }
 
 void yyerror(const char *msg)
