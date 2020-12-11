@@ -4,17 +4,14 @@ endparams
 
 beginlocals
 
-  n : integer;
-  i, j, k: integer;
-  t : array [20] of integer;
+  n,i : integer;
+  r : array [10] of integer;
 
 endlocals
 
 beginbody	## main program
-
-  i := 0;
-  j := 5;
-  if i < j then
-    write j;
-  endif;
+  continue;
+  n := 5;
+  write n;
+  continue;
 endbody
