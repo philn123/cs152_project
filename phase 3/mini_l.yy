@@ -1236,9 +1236,9 @@ var:  ident
          }
 
          output += ". " + mult + "\n";
-         output += "* " + mult + ", " + index2 + ", " + to_string(col) + "\n";
+         output += "* " + mult + ", " + index1 + ", " + to_string(col) + "\n";
          output += ". " + addi + "\n";
-         output += "+ " + addi + ", " + mult + ", " + to_string(row) + "\n";
+         output += "+ " + addi + ", " + mult + ", " + index2 + "\n";
          output += ". " + indexRowMajor + "\n";
          output += "= " + indexRowMajor + ", " + addi + "\n";
          $$.code = output;

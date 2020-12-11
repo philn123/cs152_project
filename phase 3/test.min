@@ -2,10 +2,12 @@ function main;
 beginparams
 endparams
 beginlocals
-	i,n : integer;
-  a : array[2] of integer;
+    i,n : integer;
+  a : array[2][2] of integer;
 endlocals
 beginbody
-  n := -5;
-    write n;
+    n := 5;
+    i := 1;
+    a[0][1] := n;
+    write a[1];
 endbody
