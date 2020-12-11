@@ -236,7 +236,7 @@ dec_loop:    /* epsilon */ {$$.code = ""; $$.ids = list<string>(); }//empty code
                   $$.ids.push_back(*it);
                }
             }
-        |   declaration error dec_loop{yy::parser::error(@2, "Syntax error, missing semicolon in declaration."); yyerrok; 
+        |   declaration error dec_loop{yy::parser::error(@1, "Syntax error, missing semicolon in declaration."); yyerrok; 
             errorHasOccured = true;}
         ;
 
@@ -317,15 +317,16 @@ declaration:   id_loop COLON INTEGER
                   }
                }
                
-            |  id_loop error INTEGER {yyerrok; yyerror("Syntax error, invalid declaration, missing colon.");}
-            |  id_loop error ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER {yyerrok; yyerror("Syntax error, invalid declaration, missing colon.");}
+            |  id_loop error INTEGER {yy::parser::error(@1, "Syntax error, invalid declaration, missing colon."); errorHasOccured = true; yyerrok;}
+            |  id_loop error ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER 
+               {yy::parser::error(@1, "Syntax error, invalid declaration, missing colon."); errorHasOccured = true; yyerrok;}
             |  id_loop error ARRAY L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET L_SQUARE_BRACKET NUMBER R_SQUARE_BRACKET OF INTEGER 
-               {yyerrok; yyerror("Syntax error, invalid declaration, missing colon.");}
+               {yy::parser::error(@1, "Syntax error, invalid declaration, missing colon."); errorHasOccured = true; yyerrok;}
                ;
             
 id_loop: ident {$$.push_back($1);}
       | id_loop COMMA ident {$$ = $1; $$.push_back($3);}
-      | id_loop error ident {yy::parser::error(@2, "Syntax error, missing semicolon in declaration."); yyerrok;}
+      | id_loop error ident {yy::parser::error(@2, "Syntax error, missing semicolon in declaration.");  errorHasOccured = true; yyerrok;}
       ;
 
 statement: A {$$ = $1;}
@@ -364,7 +365,7 @@ A: var ASSIGN expression
          $$ += "= " + $1.code + ", " + $3.tempRegName + "\n";
       }
    }
-   | var error expression {yyerrok; yyerror("Syntax error, \":=\" expected.");}
+   | var error expression {yy::parser::error(@2, "Syntax error, \":=\" expected."); errorHasOccured = true; yyerrok;}
    ;
 
 B: IF bool_expr THEN statement_loop ENDIF
@@ -515,11 +516,11 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
    }
    | FOR var ASSIGN NUMBER error bool_expr SEMICOLON var ASSIGN expression BEGINLOOP statement_loop ENDLOOP 
    {
-      {yyerrok; yyerror("Syntax error, missing first comma in for loop");}
+      {yy::parser::error(@1, "Syntax error, missing first semicolon in for loop"); errorHasOccured = true; yyerrok;}
    }
    | FOR var ASSIGN NUMBER SEMICOLON bool_expr error var ASSIGN expression BEGINLOOP statement_loop ENDLOOP 
    {
-      {yyerrok; yyerror("Syntax error, missing second comma in for loop");}
+      {yy::parser::error(@1, "Syntax error, missing second semicolon in for loop"); errorHasOccured = true; yyerrok;}
    }
    ;
 
@@ -598,7 +599,7 @@ var_loop:  var
             $$.push_back(temp);
             $$.insert($$.end(), $3.begin(), $3.end());
          }
-         | var var_loop {printf("Syntax error at line %d position %d: Missing comma in variable list.\n", currLine, currPos);}
+         | var var_loop {yy::parser::error(@1, "Syntax error at line %d position %d: Missing comma in variable list.\n"; errorHasOccured = true; yyerrok;}
          ;
 
 H: CONTINUE 
@@ -1074,7 +1075,7 @@ term_exp:   expression
             $$.push_back(temp);
             $$.insert($$.end(), $3.begin(), $3.end());
          }
-         |  expression error term_exp {yyerrok; yyerror("Syntax error, missing comma inbetween expressions.");}
+         |  expression error term_exp {yy::parser::error(@2, "Syntax error, missing comma inbetween expressions."); errorHasOccured = true; yyerrok;}
          ;
 
 term_top: var 
