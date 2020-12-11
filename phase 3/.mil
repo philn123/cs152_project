@@ -1,0 +1,37 @@
+
+func main
+. n
+. i
+. j
+. k
+.[] t, 20
+.< i
+.< j
+= k, 0
+= n, 20
+: _label_0
+. _temp_1
+= _temp_1, k
+[]= . _temp_0
+= _temp_0, k
+, _temp_0, _temp_1
+. _temp_2
+= _temp_2, k
+. _temp_3
++ _temp_3, _temp_2, 1
+= k, _temp_3
+. _temp_4
+= _temp_4, k
+. _temp_5
+- _temp_5, _temp_4, 1
+
+.[]> t, _temp_5
+: _label_1
+. _temp_6
+= _temp_6, k
+. _temp_7
+= _temp_7, n
+. _temp_8
+> _temp_8, _temp_6, _temp_7
+?:= _label_0, _temp_8
+endfunc
