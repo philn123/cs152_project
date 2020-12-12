@@ -22,7 +22,6 @@
     #include <string>
     #include <functional>
     #include <sstream>
-    #include <regex>
     #include <algorithm>
     using namespace std;
       /* define the sturctures using as types for non-terminals */
@@ -63,7 +62,6 @@
       string createLabel();
       void backpatch(string &, const string &, const string &);
       void replaceNewlines(string &, const string &, const string &);
-      int checkContinueLoop(string &);
       int inSymbolTable(string &);
       bool hasMain();
       bool errorTwo();
@@ -87,7 +85,6 @@ struct tests
 	 */
 #include <sstream>
 #include <map>
-#include <regex>
 #include <set>
 yy::parser::symbol_type yylex();
 void yyerror(const char *msg);
@@ -205,20 +202,31 @@ function:   FUNCTION ident SEMICOLON
                $$ += "endfunc";
 
                // Error 9
-               regex continueReg("continue.+");
-               smatch matches;
+               string target = "continue";
+               size_t pos = 0;
+               string temp = "";
+               vector<string> found;
 
-               for (sregex_iterator it = sregex_iterator($11.begin(), $11.end(), continueReg); 
-                  it != sregex_iterator(); it++)
+               while((pos = $11.find(target, pos)) != string::npos)
                {
-                  matches = *it;
+                  while($11.at(pos) != '!')
+                  {
+                     temp.push_back($11.at(pos));
+                     pos++;
+                  }
+
+                  found.push_back(temp);
+                  temp.clear();
+               }
+
+               for(auto word : found)
+               {
                   errorHasOccured = true;
-                  string tempString = matches.str(0);
-                  int pos = 8; // length of word continue
-                  
-                  string msg = "Error line " + tempString.substr(pos) + " : continue not within loop.";
+                  string msg = "Error line " + word.substr(target.length()) + " : continue not within loop.";
                   yyerror(msg);
                }
+
+
 
                extractFunctionCalls();
                sym_table.clear();
@@ -605,7 +613,7 @@ var_loop:  var
 
 H: CONTINUE 
    {
-      $$ = "continue" + to_string(@1.begin.line); 
+      $$ = "continue" + to_string(@1.begin.line) + "!"; 
    };
 
 I: RETURN expression 
@@ -1278,24 +1286,35 @@ void replaceNewlines(string &str, const string &target, const string &new_string
 
 void backpatch(string &str, const string &target, const string &new_string)
 {
-   regex reg(target + ".+");
-   str = regex_replace(str, reg, new_string);
-}
+   size_t start_pos1 = 0;
+   size_t start_pos2 = 0;
+   vector<string> stringsToReplace;
+   string temp = "";
 
-int checkContinueLoop(string &str)
-{
-   istringstream f(str);
-   string line;
-   int count = 0;
-
-   while(getline(f, line))
-   {  
-      if(line.find("continue") != string::npos)
+   // create targets to look for, we need to replace continue, but
+   // continue are in form of continue123!.
+   while((start_pos1 = str.find(target, start_pos1)) != string::npos)
+   {
+      while(str.at(start_pos1) != '!')
       {
-         count++;
+         temp.push_back(str.at(start_pos1));
+         start_pos1++;
       }
+
+      temp.push_back('!');
+      stringsToReplace.push_back(temp);
+      temp.clear();
    }
-   return count;
+
+   for (auto word : stringsToReplace)
+   {
+      while((start_pos2 = str.find(word, start_pos2)) != string::npos)
+      {
+         str.replace(start_pos2, word.length(), new_string);
+         start_pos2 += new_string.length();
+      }
+      start_pos2 = 0;
+   }
 }
 
 int inSymbolTable(string &s)
