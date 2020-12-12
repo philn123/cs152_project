@@ -531,6 +531,10 @@ E: FOR var ASSIGN NUMBER SEMICOLON bool_expr SEMICOLON var ASSIGN expression BEG
    {
       {yy::parser::error(@1, "Syntax error, missing second semicolon in for loop"); errorHasOccured = true; yyerrok;}
    }
+   | error BEGINLOOP statement_loop ENDLOOP
+    {
+      {yy::parser::error(@1, "Syntax error, invalid for loop declaration."); errorHasOccured = true; yyerrok;}
+    }
    ;
 
 F: READ var_loop
